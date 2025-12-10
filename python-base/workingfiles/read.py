@@ -24,3 +24,12 @@ with open("pyfile.txt", "a") as f:
    f.write("The sun is bright,\n")
    f.write("On this lovely day,\n")
    f.writelines(addition_lines)
+
+
+### to read csv file
+import csv 
+with open("file.csv", "r") as csv_file:
+  csv_reader = csv.reader(csv_file)
+  for  row in csv_reader:
+    print(row)
+     
