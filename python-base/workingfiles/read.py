@@ -9,3 +9,18 @@ with open('jokes.txt', "r") as file: # it will make sure the file will closed af
  lines = file.readlines()
  for line in lines:
   print(line.strip())
+
+## To write in a file
+with open('pyfile.txt', 'w') as f:
+    # Comment:    # write method overrides whatever is written
+    f.write('Roses are red,\n')
+    f.write('Violets are blue,\n')
+    f.write('And How are you!?,\n')
+# end overwrite file
+
+addition_lines = ['Stars up above,\n', "Wisper WOrds of love,\n"]
+## To add data in existing file then we use append mode
+with open("pyfile.txt", "a") as f:
+   f.write("The sun is bright,\n")
+   f.write("On this lovely day,\n")
+   f.writelines(addition_lines)
