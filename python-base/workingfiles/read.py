@@ -5,7 +5,7 @@ print(content)
 file.close()
 # it is always important to close the file to release system resources 
 # readlines the file line by line 
-with open('jokes.txt', "r") as file:
+with open('jokes.txt', "r") as file: # it will make sure the file will closed after running the code
  lines = file.readlines()
  for line in lines:
   print(line.strip())
