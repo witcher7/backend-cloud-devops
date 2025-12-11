@@ -26,4 +26,11 @@
 from pathlib import Path
 path = Path.home() 
 for item in path.iterdir():
-   print(item) 
+   if item.is_file() and item.suffix == '.txt':
+      print(item.name,'is a text file.')
+   
+   if item.is_dir():
+      print(item.name,"is a directory")
+   
+   if 'word' in item.names.lower():
+      print(item.name,"The word is there inside the file") 
