@@ -27,6 +27,16 @@ rules:
     resources: ['pod',"deployments"] 
     verbs: ['get', 'list', 'watch'] # what can you do with the resources
 
+## RBAC verb list 
+# get: read a specific resource / view individual resource like pod details
+# list: read a list of resources / view all pods in a namespace
+# watch: watch for changes to resources / get notified when a pod is created/ deleted/ updated
+# create: create a new resource
+# update: update an existing resource
+# patch: partially update an existing resource
+# delete: delete a resource
+# deletecollection: delete a collection of resources  
+
 ## to apply role to user/service account we need to create rolebinding/ clusterrolebinding
 --- 
 

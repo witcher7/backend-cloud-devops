@@ -1,0 +1,8 @@
+## OpenID Connect (OIDC) Configuration in Kubernetes
+## OIDC is an identity layer on top of the OAuth 2.0 protocol that allows clients to verify the identity of end-users based on the authentication performed by an authorization server.
+## Kubernetes can integrate with OIDC providers for authentication, allowing users to authenticate using external identity providers
+
+# AWS oidc / azure entra / google identity platform / keycloak / dex
+#  let's suppose I want to use IAM users in AWS to authenticate to my kubernetes cluster
+# I can set up an OIDC provider in AWS and configure my kubernetes API server to use that provider for authentication
+# 1. Configure the OIDC provider in your Kubernetes API server by setting the following flags:
