@@ -15,3 +15,50 @@
 
 # kubectl create sa my-service-account and bind them to users or service accounts to control access to resources.
 # # kubectl get sa > by default service account is created in each namespace and dont have authentication system
+
+## CLUSTER ROLE --> can access resources across all namespaces(cluster-wide/ entire cluster)
+## ROLE --> can access resources within a specific namespace(specific namespace only)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole 
+metadata:
+  name: reader 
+rules: 
+  - apiGroups: [""] # "" indicates the core API group
+    resources: ['pod',"deployments"] 
+    verbs: ['get', 'list', 'watch'] # what can you do with the resources
+
+## to apply role to user/service account we need to create rolebinding/ clusterrolebinding
+--- 
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: read-pods-global
+subjects:
+  - kind: ServiceAccount # can be User, Group, ServiceAccount
+    name: rg  # name of the user/ service account
+    apiGroup: "" 
+    namespace: default # namespace of the service account
+roleRef:
+  kind: ClusterRole
+  name: reader # name of the role/ clusterrole
+  apiGroup: rbac.authorization.k8s.io
+
+
+## give deployment access to service account , so that pods created by deployment can use the service account
+--- 
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: new-deployment
+spec:
+  serviceAccountName: rg
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        editor: vscode
+    spec:
+      containers:
+      - name: nginx-container
+        image: nginx 
