@@ -1,0 +1,10 @@
+# A higher level controller like deployment but used for stateful applications
+# Ensures that pods are created in order and have persistent identities and storage
+# A pod is unique with it's own unique identity
+# Useful for databases and other stateful applications that require stable network identities and persistent storage
+# ordered, graceful deployment and scaling
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nginx-statefulset
+spec:
