@@ -1,0 +1,17 @@
+# Authentication and Authorization in Kubernetes
+# Authentication is the process of verifying the identity of a user or service trying to access the Kubernetes cluster.
+# Authorization is the process of determining what actions an authenti cated user or service is allowed to perform within the cluster.
+# Kubernetes supports several authentication methods, including:
+
+### AUTHENTICATION == Loggin In
+### AUTHORIZATION == Permissions/ RBAC
+
+# 1. Client Certificates: Users can authenticate using TLS client certificates.
+# 2. Bearer Tokens: Users can authenticate using bearer tokens, such as JSON Web Tokens (JWT).
+# 3. OpenID Connect (OIDC): Kubernetes can integrate with OIDC providers for authentication.
+# 4. Service Accounts: Kubernetes provides service accounts for pods to authenticate with the API server.
+# Authorization in Kubernetes can be managed using different mechanisms, including:
+# 1. Role-Based Access Control (RBAC): RBAC allows you to define roles
+
+# kubectl create sa my-service-account and bind them to users or service accounts to control access to resources.
+# # kubectl get sa > by default service account is created in each namespace and dont have authentication system

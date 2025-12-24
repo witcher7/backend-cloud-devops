@@ -29,3 +29,14 @@ spec:
 ## Continuously monitors the cluster and makes adjustments as needed to maintain the desired state
 ## Examples: Deployment, StatefulSet, DaemonSet, Job, CronJob
 ## Most k8s resources are managed by controllers that run in the control plane
+
+
+## OPERATORS
+## Controllers + CRD's + Domain Knowledge = Operators
+## Operators are a way to package, deploy, and manage a Kubernetes application
+## They extend the Kubernetes API with custom resources and controllers to automate the management of complex applications
+## Examples: Prometheus Operator, MongoDB Operator, etc.
+# Kubebuilder is a framework for building Kubernetes APIs using custom resource definitions (CRDs).
+# It simplifies the process of creating, validating, and managing CRDs and their associated controllers.
+          
+          

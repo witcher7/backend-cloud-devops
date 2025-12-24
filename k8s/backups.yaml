@@ -1,0 +1,17 @@
+# Backups in kubernetes
+# Backups are essential for data protection and disaster recovery in Kubernetes environments.
+# They help ensure that you can restore your applications and data in case of failures, data corruption
+# or accidental deletions.
+# ETCD is the primary data store for Kubernetes, and backing it up is crucial for cluster recovery.
+# There are several tools and methods available for backing up Kubernetes resources and ETCD data.
+# Some popular tools for Kubernetes backups include:
+# 1. Velero: An open-source tool that provides backup, restore, and migration capabilities for Kubernetes clusters and persistent volumes.
+# 2. Kasten K10: A commercial solution for Kubernetes backup and disaster recovery.
+# 3. Stash by AppsCode: An open-source
+# Volumes backup solution for Kubernetes.
+# 4. Heptio Ark (now part of Velero): An open-source tool for managing disaster recovery, backups, and migrations of Kubernetes clusters.
+# Regularly test your backup and
+# S3 Backups are a common way to store backups of Kubernetes resources and ETCD data.
+# Azure backups can also be used for storing backups in Microsoft Azure cloud environments.
+# GCP Backups can be used for storing backups in Google Cloud Platform environments.
+# Always ensure that your backup strategy aligns with your organization's recovery point objectives (RPO) and
