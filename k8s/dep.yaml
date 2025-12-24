@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deploy
+spec:
+  selector: 
+    matchLabels:
+       app: nginx-deploy
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: nginx-deploy
+    spec:
+      containers:
+      - name: ctr1
+        image: nginx
+
+## deployment will make sure the pods are running at any cost  on replicaset
+
