@@ -1,0 +1,31 @@
+# CRD
+# custom resource definition 
+# used to define your own resource in kubernetes
+# extend kubernetes API --> allows you to create your own resource types / objects/kinds 
+# used by operators to manage complex applications 
+# you can define custom resources with their own spec and status fields
+# create your own or use what already exists
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: myresources.example.com
+spec:
+  group: example.com
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:    
+---
+
+## Controllers
+## Ensures that the desired state of the cluster matches the actual state
+## Continuously monitors the cluster and makes adjustments as needed to maintain the desired state
+## Examples: Deployment, StatefulSet, DaemonSet, Job, CronJob
+## Most k8s resources are managed by controllers that run in the control plane
