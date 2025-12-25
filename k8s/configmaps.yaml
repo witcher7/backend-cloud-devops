@@ -1,0 +1,30 @@
+# config maps are used to store non-confidential data in key-value pairs.
+# They can be consumed as environment variables, command-line arguments, or configuration files in a volume.
+# metadata section contains information about the ConfigMap, such as its name and namespace.
+# we just have to inject the config map name in the pod spec to use it.
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: nginx-configMap
+  namespace: default
+data:
+  username: admin
+
+---
+# Now to use this config map in a pod, we can reference it in the pod spec.
+kind: Pod
+apiVersion: v1
+metadata:
+  name: nginx-pod
+  namespace: default
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx:latest
+      env:
+        - name: USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: nginx-configMap
+              key: username
+  restartPolicy: Always

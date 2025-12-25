@@ -1,0 +1,20 @@
+# sidecar containers are secondary containers that run alongside the main application container in a pod.
+# they are used to provide additional functionality such as logging, monitoring, or proxying.
+# sidecar containers share the same lifecycle as the main container and can communicate with it via localhost
+# Each containers has same ip address and port space. so route communication through port mapping.
+apiVersion: v1
+kind: Pod       
+metadata:
+  name: myapp-pod
+  namespace: default
+spec:
+  containers:
+    - name: main-app-container
+      image: myapp:latest
+      ports:
+        - containerPort: 8080
+    - name: sidecar-container
+      image: sidecar:latest
+      ports:
+        - containerPort: 9090
+  restartPolicy: Always 
