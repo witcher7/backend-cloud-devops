@@ -39,3 +39,39 @@ spec:
 
 # Although they are in different namespace but still can speak and talk to each other 
 # due to network policy 
+
+
+### Canary Workloads
+> In this worlkloads we divide the subsets of users 
+ s1  |    s2
+     |    -------> f1.1 (first we route s2 to f1.1)
+     then later on if the f1.1 is good
+ -------------------| route remaining ones 
+
+ ## Blue green environment means staging and production 
+ Initial state(blue) --> current ,stable version handling all live user traffic
+ Deploy new Version(Green) --> new version of the application(the "green" env) is deployed in paralled, with it's own 
+ set of pods and different label --> isolated and does not receive live traffic allowing for testing 
+
+
+ ## ROLLING UPDATE helps to use update method effeciently when we are updating out deployment so it will kill one by one and replace the pod
+ then kill another and replace so that customers wont face issues while updating 
+
+ apiVersion: apps/v1 
+ metadata:
+    name: nginx-deployment 
+ spec: 
+   selector:  
+      matchLabels:
+        app: nginxdeployment 
+   revisionHistoryLimit: 3  # tells how many old replicaSets to keep after update  .. allow rollback if new version fails 
+   progressDeadlineSeconds: 300 ## how long k8s should wat for deployment to make progress before marking failed 
+   minReadySeconds: 10
+   strategy: 
+     type: RollingUpdate
+     RollingUpdate:
+       maxUnavailable: 1 # At most 1 pod can be down during the update provide high availability 
+       maxSurge: 1 #  can create 1 extra pod above the desired count 
+  replicas: 4
+  template:
+    -------
