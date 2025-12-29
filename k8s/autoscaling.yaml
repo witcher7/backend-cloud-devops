@@ -1,0 +1,44 @@
+# HPA --> horizontal pod autoscaler
+# automatically scales the number of pods in a deployment, replica set, or stateful set based
+# on observed CPU utilization or other select metrics.
+# It helps ensure that your application can handle varying levels of traffic by adjusting the number of running pods accordingly.
+
+#>  Imperative --> kubectl autoscale deployment <deployment-name> --min=<min-pods> --max=<max-pods> --cpu-percent=<target-cpu-utilization>
+#> kubectl autoscale deployment myapp-deployment --min=2 --max=10 --cpu-percent=80
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: myapp-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: myapp-deployment
+  minReplicas: 4
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80  
+--- 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp-deployment
+spec:
+  selector:
+    matchLabels:
+      editor: vscode
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        editor: vscode
+    spec:
+      containers:
+      - name: new-ctr
+        image: nginx:latest
