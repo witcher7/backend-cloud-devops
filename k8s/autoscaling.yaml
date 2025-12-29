@@ -42,3 +42,44 @@ spec:
       containers:
       - name: new-ctr
         image: nginx:latest
+        resources:
+          requests:
+            cpu: 250m
+          limits:
+            cpu: 500m
+
+# sudo apt install hey
+# hey -z 5m -q 10 -c 2 http://<node-ip>:<node-port>
+# kubectl expose deployment myapp-deployment --type=NodePort --port=80
+# minikube service myapp-deployment --url
+
+## VPA --> vertical pod autoscaler
+# automatically adjusts the CPU and memory requests and limits for the containers in your pods
+# based on their actual resource usage.
+# It helps ensure that your application has the right amount of resources to operate efficiently without over-pro
+#visioning or under-provisioning.
+# Note: VPA and HPA cannot be used together on the same deployment.
+#> kubectl apply -f vpa.yaml
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: myapp-vpa
+  namespace: default
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind:       Deployment
+    name:       myapp-deployment
+  updatePolicy:
+    updateMode: "Auto"      
+  resourcePolicy:   
+    containerPolicies:
+    - containerName: "new-ctr"
+      minAllowed:
+        cpu: "200m"
+        memory: "256Mi"
+      maxAllowed:
+        cpu: "1"
+        memory: "1Gi" 
+      
