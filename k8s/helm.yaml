@@ -1,0 +1,22 @@
+# HELM is a package manager for Kubernetes that helps you manage Kubernetes applications.
+# This file defines a Helm chart for deploying an application with resource utilization settings.
+# helm create <chart-name> to create a new chart
+#   chart structure:
+#   <chart-name>/
+#   ├── Chart.yaml # Metadata about the chart
+#   ├── values.yaml # Default configuration values
+#   ├── charts/
+#   └── templates/ defined below  
+# helm install <release-name> <chart-name> to deploy the chart
+# helm upgrade <release-name> <chart-name> to update the deployment
+# helm uninstall <release-name> to remove the deployment
+# helm repo add <repo-name> <repo-url> to add a chart repository
+# helm repo update to update the local chart repository cache
+# helm search repo <keyword> to search for charts in the added repositories
+# helm package <chart-name> to package the chart into a .tgz file for distribution
+# helm lint <chart-name> to validate the chart for best practices and errors
+# helm template <chart-name> to render the chart templates locally
+# helm dependency update <chart-name> to update chart dependencies
+# helm get all <release-name> to retrieve information about a deployed release
+# helm history <release-name> to view the revision history of a release
+# helm rollback <release-name> <revision> to revert to a previous release revision
