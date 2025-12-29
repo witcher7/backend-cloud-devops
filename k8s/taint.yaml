@@ -1,0 +1,19 @@
+# Taints and tolerations configuration for Kubernetes nodes
+# Taints are applied to nodes to repel certain pods, while tolerations are applied to pods to allow them to be scheduled on tainted nodes.
+# It is opposite of node affinity which attracts pods to nodes.
+# tainst repel pods from being scheduled on nodes unless the pod has a matching toleration.
+# tolerations allow pods to be scheduled on nodes with matching taints. 
+# tolerations do not attract pods to nodes, they simply allow the pods to be scheduled on tainted nodes. but dont guarantee that they will be scheduled there.
+
+#### kubectl taint nodes <node-name> key1=value1:NoSchedule
+#### This command taints the specified node with a key-value pair and an effect of NoSchedule
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tainted-pod
+spec:
+  tolerations:
+  - key: "key1"
+    operator: "Equal" 
+    value: "value1"
+    effect: "NoSchedule"

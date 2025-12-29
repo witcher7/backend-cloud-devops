@@ -1,0 +1,32 @@
+# labels are key-value pairs used to organize and categorize Kubernetes resources
+# This file provides examples of how to define and use labels in Kubernetes manifests
+# Labels can be used for selection, grouping, and filtering of resources
+apiVersion: v1
+kind: Pod
+metadata:
+  name: labeled-pod
+  labels:
+    app: myapp
+    environment: production
+spec:
+  containers:
+  - name: mycontainer
+    image: nginx:latest
+
+# selectors are used to filter and select Kubernetes resources based on their labels
+
+--- 
+apiVersion: v1  
+kind: Service
+metadata:
+  name: labeled-service
+  labels:
+    app: myapp
+    environment: production
+spec:
+  selector:
+    app: myapp
+    environment: production
+  ports:
+  - protocol: TCP
+    port: 80  

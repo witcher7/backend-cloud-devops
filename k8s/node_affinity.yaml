@@ -1,0 +1,24 @@
+# It allows you to define node affinity rules for a Kubernetes deployment.
+# Node affinity is used to constrain which nodes your pods are eligible to be scheduled on, based on labels on the nodes.
+# This file serves as a template for setting node affinity in a Kubernetes environment.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: Enter deployment name
+spec:
+  replicas: Enter the number of replicas
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: Enter node label key
+                operator: In
+                values:
+                - Enter node label value
+          preferredDuringSchedulingIgnoredDuringExecution:
