@@ -1,0 +1,43 @@
+# Resource utilization configuration
+# Limits , requests and quotas for CPU and memory resources
+# They can be defined at the container, pod, or namespace level
+# This file serves as a template for setting resource constraints in a Kubernetes environment
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: Enter deployment name
+spec:
+  replicas: Enter the number of replicas
+  template:
+    metadata:
+      labels:
+        editor: vscode
+    spec:
+      containers:
+      - name: name
+        image: Enter containers image
+        resources:
+          requests:
+            memory: "128Mi"  # Minimum memory required
+            cpu: "250m"      # Minimum CPU required
+          limits:
+            memory: "512Mi"  # Maximum memory allowed
+            cpu: "500m"      # Maximum CPU allowed
+
+--- 
+# Resource Quota for a Namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: example-quota
+  namespace: Enter namespace name
+spec:
+  hard:
+    requests.cpu: "2"            # Total CPU requests allowed in the namespace
+    requests.memory: "4Gi"       # Total memory requests allowed in the namespace
+    limits.cpu: "4"              # Total CPU limits allowed in the namespace
+    limits.memory: "8Gi"         # Total memory limits allowed in the namespace
+    pods: "10"                   # Maximum number of pods allowed in the namespace
+    services: "5"                # Maximum number of services allowed in the namespace
+    persistentvolumeclaims: "5"  # Maximum number of PVCs allowed in the namespace  
