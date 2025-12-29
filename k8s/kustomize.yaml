@@ -1,0 +1,72 @@
+# Kustomize configuration file
+# it helps to customize Kubernetes YAML configurations without modifying the original files
+# This file defines the resources to be included in the kustomization process
+# - base refers to the base directory containing the original YAML files
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  selector:
+    matchLabels:
+      app: nginxdeployment
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: nginxdeployment
+    spec:
+      containers:
+      - name: nginxdeployment
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+
+--- 
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginxservice
+spec:
+  selector:
+    app: nginxdeployment
+  ports:
+    - protocol: TCP
+      port: 80
+  type: LoadBalancer
+
+--- 
+kustomization.yaml 
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml
+  - service.yaml
+
+
+###  OVERLAYS ###
+# DEV folder kustomization.yaml 
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../../base/
+
+replicas:
+- name: nginx-deployment
+  count: 1
+
+# PROD folder kustomization.yaml
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../../base/
+
+replicas:
+- name: nginx-deployment
+  count: 5
+
+# This kustomization file includes the base resources and modifies the number of replicas for different environments (DEV and PROD).
+# It allows for easy customization of the deployment configurations without altering the base files.
+# the folder structure would typically look like this:
