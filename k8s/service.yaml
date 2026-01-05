@@ -1,0 +1,27 @@
+# Service is frontend for accessing the application / Pods
+# A way to expose an application running on a set of Pods as a network service.
+# With Kubernetes, you don't need to modify your application to use an unfamiliar service discovery mechanism.
+# Kubernetes gives Pods their own IP addresses and a single DNS name for a set of Pods,
+# Services get DNS names , which come from CoreDNS in the cluster.
+# Services can be exposed in different ways by specifying a type in the ServiceSpec:
+# ClusterIP: Exposes the Service on a cluster-internal IP. Choosing this value makes the Service only reachable from within the cluster.
+# NodePort: Exposes the Service on each Node's IP at a static port (the NodePort). A ClusterIP Service, to which the NodePort Service routes, is automatically created.
+# LoadBalancer: Exposes the Service externally using a cloud provider's load balancer. NodePort and ClusterIP Services, to which the external load balancer routes, are automatically created.
+# ExternalName: Maps the Service to the contents of the externalName field (e.g., foo.bar.example.com), by returning a CNAME record with its value.
+apiVersion: v1
+kind: Service   
+metadata:
+  name: my-service
+spec:
+  selector:
+    app: MyApp # Selects Pods with label app=MyApp 
+  ports:
+  - protocol: TCP
+    port: 80          # Port on which the service is exposed
+    targetPort: 9376  # Port on the Pod to which traffic is directed
+  type: LoadBalancer  # Exposes the service externally using a cloud provider's load balancer 
+       # ClusterIP    # Exposes the Service on a cluster-internal IP
+       # NodePort     # Exposes the Service on each Node's IP at a static port
+        # ExternalName # Maps the Service to the contents of the externalName field
+       # headless   # Service without a cluster IP, used for stateful applications
+       `
