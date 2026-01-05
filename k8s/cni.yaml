@@ -13,3 +13,34 @@
 # Weave Net is a CNI plugin that provides simple and efficient networking for Kubernetes clusters. But not as popular as Calico or Cilium
 # Flannel is a lightweight CNI plugin that provides basic networking for Kubernetes clusters. It is easy to set up and is often used in smaller clusters or development environments.
 # But in Production clusters, Cilium and Calico are more popular due to their advanced features and scalability.
+
+# CILIUM is ebpf based CNI plugin that provides advanced networking and security features for Kubernetes clusters.
+# Cilium leverages eBPF (extended Berkeley Packet Filter) technology in the Linux kernel to provide high-performance networking and security capabilities.
+# Cilium provides features such as network policies, load balancing, and service mesh capabilities.
+# Cilium also integrates with Kubernetes to provide seamless networking and security for containerized applications.
+> helm repo add cilium https://helm.cilium.io/
+> helm install cilium cilium/cilium --version 1.13.3 --namespace kube-system
+
+# CNI Configuration example for Cilium
+apiVersion: cni.cncf.io/v1
+kind: NetworkConfiguration
+metadata:
+  name: cilium-config
+spec:
+  cniVersion: 0.3.1     
+  type: cilium-cni
+  enableIPv4: true
+  enableIPv6: false
+  mtu: 1450
+  ipam:
+    type: cilium-ipam
+    clusterPoolIPv4PodCIDR: "     
+  
+# Note: The above configuration is just an example and may vary based on the specific CNI plugin being used and the requirements of the Kubernetes cluster.
+# Calico is another popular CNI plugin that provides networking and network policy capabilities for Kubernetes clusters.
+# Calico supports both layer 3 networking and network policies, allowing for fine-grained control
+# over pod-to-pod communication within the cluster.
+# Calico can be installed using various methods, including using kubectl to apply manifests or using Helm charts.
+# Calico also integrates with Kubernetes NetworkPolicy resources to enforce network policies for pods./16"
+> helm repo add projectcalico https://docs.projectcalico.org/charts
+> helm install calico projectcalico/tigera-operator --namespace kube-system
