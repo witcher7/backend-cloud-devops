@@ -1,0 +1,409 @@
+# Ingress controllers is a collection of rules that allow inbound connections to reach the cluster services.
+# An Ingress controller is responsible for fulfilling the Ingress, usually with a load balancer, though it may also configure your edge router or additional frontends to help handle the traffic.
+# Ingress may provide load balancing, SSL termination and name-based virtual hosting.
+# An Ingress controller is a specialized load balancer for Kubernetes (k8s) environments, managing external access to services in a cluster, typically HTTP.
+# Ingress controllers watch the Kubernetes API server for updates to Ingress resource objects and reconfigure themselves accordingly.
+# Popular Ingress controllers include NGINX, Traefik, and HAProxy.
+# Ingress controllers can be deployed using various methods, including using kubectl to apply manifests or using Helm charts.
+# Ingress controllers can be configured with various features, such as SSL termination, URL path routing, and rate limiting.
+# Ingress controllers can also integrate with Kubernetes NetworkPolicy resources to enforce network policies for incoming traffic.
+# NAMESPACE = ingress-system
+# helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+# helm install ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-system --create-namespace --set controller.publishService.enabled=true 
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: myapp.example.com
+    http:
+      paths:    
+      - path: /    
+        pathType: Prefix
+        backend:
+          service:
+            name: my-service
+            port:
+              number: 80  
+
+# Traefik Ingress Controller installation using Helm
+# helm repo add traefik https://helm.traefik.io/traefik
+# helm install traefik traefik/traefik --namespace ingress-system --create-namespace  
+# Note: The above configuration is just an example and may vary based on the specific Ingress controller being used and the requirements of the Kubernetes cluster.
+# Traefik is another popular Ingress controller that provides advanced features such as dynamic configuration, service discovery, and middleware support.
+# Traefik can be installed using various methods, including using kubectl to apply manifests or using Helm charts.
+# Traefik also integrates with Kubernetes NetworkPolicy resources to enforce network policies for incoming traffic.
+# Traefik Ingress example
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: traefik-ingress
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+  - host: myapp.example.com 
+    http:
+      paths:  
+      - path: /  
+        pathType: Prefix
+        backend:
+          service:
+            name: my-service
+            port:
+              number: 80
+
+----  
+
+## Activity
+# On your EC2 (Amazon Linux 2 / Ubuntu):
+
+# # AWS CLI
+# curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
+# unzip awscliv2.zip
+# sudo ./aws/install
+
+# # kubectl
+# curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
+# chmod +x kubectl
+# sudo mv kubectl /usr/local/bin/
+
+# # eksctl
+# curl --silent --location \
+# "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" \
+# | tar xz -C /tmp
+# sudo mv /tmp/eksctl /usr/local/bin/
+
+
+# IAM role on EC2 must have:
+
+# AmazonEKSClusterPolicy
+
+# AmazonEKSWorkerNodePolicy
+
+# AmazonEC2FullAccess (lab-wise okay)
+
+# Step 1: Create EKS cluster using eksctl
+# eksctl create cluster \
+#   --name ingress-lab \
+#   --region ap-south-1 \
+#   --nodegroup-name ng-1 \
+#   --node-type t3.medium \
+#   --nodes 2 \
+#   --managed
+
+
+# Verify:
+
+# kubectl get nodes
+
+
+# If nodes are Ready, you’re in.
+
+# Step 2: Install NGINX Ingress Controller (AWS-safe way)
+
+# We’ll use the official ingress-nginx manifest.
+
+# kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.2/deploy/static/provider/aws/deploy.yaml
+
+
+# Wait:
+
+# kubectl get pods -n ingress-nginx
+# kubectl get svc -n ingress-nginx
+
+
+# You should see:
+
+# ingress-nginx-controller   LoadBalancer   a1b2c3.elb.amazonaws.com
+
+
+# That ELB DNS = your entry point.
+
+# Step 3: Create multiple backend deployments
+# App 1 – Flask (blue)
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: app-blue
+# spec:
+#   replicas: 2
+#   selector:
+#     matchLabels:
+#       app: blue
+#   template:
+#     metadata:
+#       labels:
+#         app: blue
+#     spec:
+#       containers:
+#       - name: blue
+#         image: hashicorp/http-echo
+#         args:
+#           - "-text=BLUE APP"
+#         ports:
+#         - containerPort: 5678
+
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: blue-svc
+# spec:
+#   selector:
+#     app: blue
+#   ports:
+#   - port: 80
+#     targetPort: 5678
+
+# App 2 – Node-style (green)
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: app-green
+# spec:
+#   replicas: 2
+#   selector:
+#     matchLabels:
+#       app: green
+#   template:
+#     metadata:
+#       labels:
+#         app: green
+#     spec:
+#       containers:
+#       - name: green
+#         image: hashicorp/http-echo
+#         args:
+#           - "-text=GREEN APP"
+#         ports:
+#         - containerPort: 5678
+
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: green-svc
+# spec:
+#   selector:
+#     app: green
+#   ports:
+#   - port: 80
+#     targetPort: 5678
+
+
+# Apply all:
+
+# kubectl apply -f .
+
+# Step 4: Create Ingress (this is the money part)
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: multi-app-ingress
+#   annotations:
+#     nginx.ingress.kubernetes.io/rewrite-target: /
+# spec:
+#   ingressClassName: nginx
+#   rules:
+#   - http:
+#       paths:
+#       - path: /blue
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: blue-svc
+#             port:
+#               number: 80
+#       - path: /green
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: green-svc
+#             port:
+#               number: 80
+
+
+# Apply:
+
+# kubectl apply -f ingress.yaml
+
+# Step 5: Test it like a grown-up
+
+# Get ELB DNS:
+
+# kubectl get svc -n ingress-nginx
+
+
+# Test:
+
+# curl http://<ELB-DNS>/blue
+# curl http://<ELB-DNS>/green
+
+
+## RATE limiting (optional advanced step)
+# Annotate the Ingress with rate limiting annotations:
+# metadata:
+#   name: multi-app-ingress
+#   annotations:
+#     nginx.ingress.kubernetes.io/rewrite-target: /
+#     nginx.ingress.kubernetes.io/limit-connections: "1"
+#     nginx.ingress.kubernetes.io/limit-rpm: "5"  # requests per minute
+#     nginx.ingress.kubernetes.io/limit-rps: "1"  # requests per second   
+
+# 1️⃣ Rate Limiting (NGINX-native, no extra tools)
+
+# This is per-client IP throttling handled inside the ingress controller.
+
+# What we’re enforcing
+
+# Max 5 requests / second
+
+# Burst up to 10
+
+# Extra requests get 429
+
+# Update your existing Ingress
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: multi-app-ingress
+#   annotations:
+#     nginx.ingress.kubernetes.io/rewrite-target: /
+
+#     # rate limiting
+#     nginx.ingress.kubernetes.io/limit-rps: "5"
+#     nginx.ingress.kubernetes.io/limit-burst-multiplier: "2"
+#     nginx.ingress.kubernetes.io/limit-connections: "10"
+# spec:
+#   ingressClassName: nginx
+#   rules:
+#   - http:
+#       paths:
+#       - path: /blue
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: blue-svc
+#             port:
+#               number: 80
+#       - path: /green
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: green-svc
+#             port:
+#               number: 80
+# for i in {1..20}; do curl -s http://<ELB-DNS>/blue; done
+
+### AUTHENTICATION (optional advanced step)
+# 2️⃣ Basic Auth (NGINX-native, no extra tools)
+# This is per-client IP basic authentication handled inside the ingress controller.
+# What we’re enforcing
+# All requests to /green must provide basic auth credentials
+# Username: admin
+# Password: password
+
+    # nginx.ingress.kubernetes.io/auth-type: basic
+    # nginx.ingress.kubernetes.io/auth-secret: basic-auth
+    # nginx.ingress.kubernetes.io/auth-realm: "Restricted Area"
+
+## ACTIVITY 
+# This is classic NGINX basic auth using a Kubernetes secret.
+
+# Step A: Create htpasswd
+
+# On your EC2:
+
+# sudo apt install apache2-utils -y   # ubuntu
+# htpasswd -c auth admin
+
+
+# Enter password.
+
+# This creates a file called auth.
+
+# Step B: Create Kubernetes Secret
+# kubectl create secret generic basic-auth \
+#   --from-file=auth
+
+
+# Verify:
+
+# kubectl get secret basic-auth
+
+# Step C: Enable auth on Ingress
+
+# Add annotations 👇
+
+# metadata:
+#   name: multi-app-ingress
+#   annotations:
+#     nginx.ingress.kubernetes.io/rewrite-target: /
+
+#     # auth
+#     nginx.ingress.kubernetes.io/auth-type: basic
+#     nginx.ingress.kubernetes.io/auth-secret: basic-auth
+#     nginx.ingress.kubernetes.io/auth-realm: "Restricted Area"
+
+#     # rate limiting
+#     nginx.ingress.kubernetes.io/limit-rps: "5"
+#     nginx.ingress.kubernetes.io/limit-burst-multiplier: "2"
+
+
+# Apply again:
+
+# kubectl apply -f ingress.yaml
+
+# Step D: Test auth
+# curl http://<ELB-DNS>/blue
+
+
+# Response:
+
+# 401 Unauthorized
+# curl -u admin:password http://<ELB-DNS>/green
+
+# SCOPED AUTHENTICATION (optional advanced step)
+# 3️⃣ Scoped Auth (NGINX-native, no extra tools)
+# This is path-scoped basic authentication handled inside the ingress controller.
+# What we’re enforcing
+# All requests to /green must provide basic auth credentials
+# Requests to /blue are open  
+kind: Ingress
+metadata:
+  name: green-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /green
+        pathType: Prefix
+        backend:
+          service:
+            name: green-svc
+            port:
+              number: 80
+
+--- 
+
+kind: Ingress
+metadata:
+  name: blue-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: basic-auth
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /blue
+        pathType: Prefix
+        backend:
+          service:
+            name: blue-svc
+            port:
+              number: 80
