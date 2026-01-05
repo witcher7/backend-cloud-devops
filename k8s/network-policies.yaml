@@ -1,0 +1,37 @@
+# Network policies in Kubernetes
+# Network policies are a way to control the communication between pods and services in a Kubernetes cluster.
+# They allow you to define rules that specify which pods can communicate with each other and which cannot.
+# Network policies are implemented using labels and selectors to identify the pods that the policy applies to.
+# Firewall rules for pods
+# control traffic at the IP address or port level (OSI model layer 3 or 4) 00> Ingress and Egress rules
+# By default, all pods in a Kubernetes cluster can communicate with each other without any restrictions.
+# When you create a network policy, it overrides the default behavior and restricts communication based on the defined rules.
+# Network policies can be used to enhance the security of your Kubernetes cluster by limiting the attack surface and reducing the risk of lateral movement by attackers.
+# They can also be used t
+
+# Run pods
+# kubectl run busybox1 --image=busybox --restart=Never --labels app=busybox1 -- sleep 3600
+# kubectl run busybox2 --image=busybox --restart=Never --labels app=busybox2 -- sleep 3600
+# kubectl get pods -o wide 
+# run ping command to test connectivity
+# kubectl exec -it busybox2 -- ping -c3 ip-of-busybox1-pod
+# You should see successful ping responses
+
+# Create a network policy that allows blocks all ingress traffic to busybox1 pod
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-ingress-to-busybox1
+spec:
+  podSelector:
+    matchLabels:
+      app: busybox1
+  policyTypes:  
+  - Ingress
+  ingress: []  # Empty ingress rules block all incoming traffic to the selected pods
+
+# Test connectivity again
+# kubectl exec -it busybox2 -- ping -c3 ip-of-busybox1-pod
+# You should see ping requests time out, indicating that the busybox2 pod
+
+# Network policies are not supported by all CNI plugins. Ensure that your cluster's CNI plugin supports network policies before using them.

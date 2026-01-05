@@ -1,0 +1,74 @@
+# TLS --> transport layer security 
+# TLS is a cryptographic protocol that provides secure communication over a network.
+# TLS is widely used to secure web traffic (HTTPS), email (SMTP, IMAP, POP3), and other network protocols.
+# TLS provides confidentiality, integrity, and authenticity for data transmitted over a network.
+# TLS uses a combination of symmetric and asymmetric encryption to secure data.
+# TLS also uses digital certificates to authenticate the identity of the server and, optionally, the client
+
+# TLS in kubernetes
+# In Kubernetes, TLS is commonly used to secure communication between various components, such as the API server, etcd, kubelets, and pods.
+# TLS can be configured for Kubernetes clusters using various methods, including using self-signed certificates, using a certificate authority (CA), or using a third-party certificate provider.
+# Kubernetes also provides built-in support for TLS through the use of Secrets, which can be used to store TLS certificates and keys.
+# TLS can also be used to secure communication between services within a Kubernetes cluster using Service Mesh technologies like Istio, Linkerd, or Consul.
+# These service meshes provide features such as mutual TLS (mTLS) to encrypt and authenticate communication between services.
+
+# Certmanager   
+# Cert-manager is a popular Kubernetes add-on that automates the management and issuance of TLS certificates.
+# Cert-manager can automatically obtain and renew TLS certificates from various certificate authorities, including Let's Encrypt,
+# HashiCorp Vault, and Venafi.
+# Cert-manager can also manage self-signed certificates and certificates issued by internal CAs.
+# Cert-manager works by defining Certificate resources in Kubernetes, which specify the desired state of the TLS
+> kubectl create namespace cert-manager
+> helm repo add jetstack https://charts.jetstack.io
+> helm repo update
+> helm install cert-manager jetstack/cert-manager --namespace cert-manager --version v1.12.2 --set installCRDs=true
+# Example Certificate resource
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer 
+metadata:
+  name: letsencrypt-cluster-issuer
+spec:
+  acme: 
+   # staging server from letsencrypt for testing purpose
+    server: https://acme-staging-v02.api.letsencrypt.org/directory 
+    email: asoftware417@gmail.com
+    privateKeySecretRef:
+      name:  letsencrypt-cluster-issuer-key
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+  secretName: my-tls-cert-secret
+--- 
+
+# Certificate 
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:   
+  name: my-tls-cert
+  namespace: default
+spec:
+  secretName: my-tls-cert-secret
+  issuerRef:
+    name: letsencrypt-cluster-issuer
+    kind: ClusterIssuer
+  commonName: myapp.example.com
+  dnsNames:
+  - myapp.example.com
+
+  ## annotations for ingress to use the tls secret created by cert-manager
+# kubernetes.io/ingress.class: "nginx"
+# cert-manager.io/cluster-issuer: "letsencrypt-cluster-issuer"
+# tls:
+# - hosts:
+#   - myapp.example.com
+#   secretName: my-tls-cert-secret
+apiVersion: v1
+kind: Secret
+metadata:       
+  name: my-tls-cert-secret  
+  namespace: default
+type: kubernetes.io/tls
+data:
+  tls.crt: <base64-encoded-certificate>  # Base64 encoded TLS certificate
+  tls.key: <base64-encoded-private-key>  # Base64 encoded TLS private key
