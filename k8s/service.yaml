@@ -24,4 +24,4 @@ spec:
        # NodePort     # Exposes the Service on each Node's IP at a static port
         # ExternalName # Maps the Service to the contents of the externalName field
        # headless   # Service without a cluster IP, used for stateful applications
-       `
+   clusterIP: None # This makes the service headless 
