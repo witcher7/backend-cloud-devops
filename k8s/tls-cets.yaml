@@ -72,3 +72,481 @@ type: kubernetes.io/tls
 data:
   tls.crt: <base64-encoded-certificate>  # Base64 encoded TLS certificate
   tls.key: <base64-encoded-private-key>  # Base64 encoded TLS private key
+
+
+
+  ### ACTIVITY ###
+#   Assumptions (say stop if any mismatch)
+
+# EKS cluster running (eksctl)
+
+# NGINX Ingress Controller installed
+
+# Public Route53 hosted zone
+# (example: example.com)
+
+# You can create DNS records
+
+# I’ll use:
+
+# blue.example.com
+
+# green.example.com
+
+# Swap names freely.
+
+# STEP 1 — Why TLS comes before cert-manager
+
+# TLS has two layers:
+
+# Ingress knows how to use certificates
+
+# cert-manager knows how to issue certificates
+
+# If you don’t understand #1, cert-manager feels like magic.
+# We won’t do magic.
+
+# STEP 2 — Create backend deployments (simple & boring)
+# Blue app
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: blue-app
+# spec:
+#   replicas: 2
+#   selector:
+#     matchLabels:
+#       app: blue
+#   template:
+#     metadata:
+#       labels:
+#         app: blue
+#     spec:
+#       containers:
+#       - name: blue
+#         image: hashicorp/http-echo
+#         args: ["-text=BLUE SERVICE"]
+#         ports:
+#         - containerPort: 5678
+
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: blue-svc
+# spec:
+#   selector:
+#     app: blue
+#   ports:
+#   - port: 80
+#     targetPort: 5678
+
+# Green app (same pattern)
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: green-app
+# spec:
+#   replicas: 2
+#   selector:
+#     matchLabels:
+#       app: green
+#   template:
+#     metadata:
+#       labels:
+#         app: green
+#     spec:
+#       containers:
+#       - name: green
+#         image: hashicorp/http-echo
+#         args: ["-text=GREEN SERVICE"]
+#         ports:
+#         - containerPort: 5678
+
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: green-svc
+# spec:
+#   selector:
+#     app: green
+#   ports:
+#   - port: 80
+#     targetPort: 5678
+
+
+# Apply all:
+
+# kubectl apply -f .
+
+
+# Verify:
+
+# kubectl get pods
+# kubectl get svc
+
+# STEP 3 — Plain HTTP Ingress (baseline)
+
+# No TLS yet. Just routing.
+
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: http-ingress
+# spec:
+#   ingressClassName: nginx
+#   rules:
+#   - host: blue.example.com
+#     http:
+#       paths:
+#       - path: /
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: blue-svc
+#             port:
+#               number: 80
+#   - host: green.example.com
+#     http:
+#       paths:
+#       - path: /
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: green-svc
+#             port:
+#               number: 80
+
+
+# Apply:
+
+# kubectl apply -f ingress.yaml
+
+# STEP 4 — DNS hookup (don’t skip this)
+
+# Get ingress ELB:
+
+# kubectl get svc -n ingress-nginx
+
+
+# Create Route53 A records:
+
+# Record	Target
+# blue.example.com	ELB DNS
+# green.example.com	ELB DNS
+
+# Wait ~1–2 mins.
+
+# Test:
+
+# curl http://blue.example.com
+# curl http://green.example.com
+
+# STEP 5 — Manual TLS (understand the mechanics)
+
+# Create a self-signed cert (learning step).
+
+# openssl req -x509 -nodes -days 365 \
+#   -newkey rsa:2048 \
+#   -keyout tls.key \
+#   -out tls.crt
+
+
+# Create secret:
+
+# kubectl create secret tls demo-tls \
+#   --cert=tls.crt \
+#   --key=tls.key
+
+# Update Ingress to use TLS
+# spec:
+#   tls:
+#   - hosts:
+#     - blue.example.com
+#     - green.example.com
+#     secretName: demo-tls
+
+
+# Apply again.
+
+# Now test:
+
+# https://blue.example.com
+
+
+# Browser warning ✔️
+# That’s expected.
+
+# 📌 You now understand TLS termination at ingress.
+
+
+## NOW AUTOMATION 
+## CERT MANAGER 
+# Cert-manager is a Kubernetes add-on that automates the issuance, renewal, and management of TLS/SSL certificates, reducing outages and simplifying security. It supports various issuers (Let's Encrypt, HashiCorp Vault, private CAs) and integrates with Kubernetes resources like Ingress to secure traffic. 
+# Key Uses of Cert-Manager
+# Automation of Certificate Lifecycles: Automatically requests, renews, and manages X.509 certificates for applications within a cluster.
+# Kubernetes Ingress Security: Frequently used with NGINX or other Ingress controllers to enable HTTPS for web services.
+# Secure Internal Communication: Manages certificates for inter-service communication (mTLS).
+# Support for Multiple Issuers: Works with public authorities like Let's Encrypt, or private Certificate Authorities (CAs) such as HashiCorp Vault.
+# Secret Management: Stores private keys and certificates securely as Kubernetes Secrets. 
+
+# kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
+# Create ClusterIssuer for Let's Encrypt
+#   apiVersion: cert-manager.io/v1
+# kind: ClusterIssuer
+# metadata:
+#   name: letsencrypt-prod
+# spec:
+#   acme:
+#     email: you@example.com
+#     server: https://acme-v02.api.letsencrypt.org/directory
+#     privateKeySecretRef:
+#       name: letsencrypt-prod
+#     solvers:
+#     - http01:
+#         ingress:
+#           class: nginx
+# 🧱 PHASE 1 — REBUILD FROM ZERO (calm mode)
+# 1.1 Install NGINX Ingress Controller (fresh)
+# kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.2/deploy/static/provider/aws/deploy.yaml
+
+
+# Wait:
+
+# kubectl get pods -n ingress-nginx
+# kubectl get svc -n ingress-nginx
+
+
+# You want:
+
+# Pods: Running
+
+# Service: LoadBalancer with ELB DNS
+
+# 👉 Do nothing else until this is clean.
+
+# 1.2 Install cert-manager (fresh)
+# kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
+
+
+# Wait:
+
+# kubectl get pods -n cert-manager
+
+
+# All pods must be Running.
+
+# 🚀 PHASE 2 — APPS FIRST (NO TLS YET)
+# 2.1 Deploy Blue app
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: blue-app
+# spec:
+#   replicas: 2
+#   selector:
+#     matchLabels:
+#       app: blue
+#   template:
+#     metadata:
+#       labels:
+#         app: blue
+#     spec:
+#       containers:
+#       - name: blue
+#         image: hashicorp/http-echo
+#         args: ["-text=BLUE OK"]
+#         ports:
+#         - containerPort: 5678
+
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: blue-svc
+# spec:
+#   selector:
+#     app: blue
+#   ports:
+#   - port: 80
+#     targetPort: 5678
+
+
+# Apply:
+
+# kubectl apply -f blue.yaml
+
+# 2.2 Deploy Green app (same idea)
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: green-app
+# spec:
+#   replicas: 2
+#   selector:
+#     matchLabels:
+#       app: green
+#   template:
+#     metadata:
+#       labels:
+#         app: green
+#     spec:
+#       containers:
+#       - name: green
+#         image: hashicorp/http-echo
+#         args: ["-text=GREEN OK"]
+#         ports:
+#         - containerPort: 5678
+
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: green-svc
+# spec:
+#   selector:
+#     app: green
+#   ports:
+#   - port: 80
+#     targetPort: 5678
+
+
+# Apply:
+
+# kubectl apply -f green.yaml
+
+
+# Confirm:
+
+# kubectl get pods
+# kubectl get svc
+
+# 🌐 PHASE 3 — HTTP INGRESS ONLY (baseline)
+# 3.1 Create ingress (NO TLS, NO cert-manager)
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: http-ingress
+# spec:
+#   ingressClassName: nginx
+#   rules:
+#   - host: blue.blackopsghost.space
+#     http:
+#       paths:
+#       - path: /
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: blue-svc
+#             port:
+#               number: 80
+#   - host: green.blackopsghost.space
+#     http:
+#       paths:
+#       - path: /
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: green-svc
+#             port:
+#               number: 80
+
+
+# Apply:
+
+# kubectl apply -f ingress.yaml
+
+# 3.2 DNS (don’t rush)
+
+# Point BOTH records to the NGINX ELB:
+
+# blue.blackopsghost.space   → <ELB-DNS>
+# green.blackopsghost.space → <ELB-DNS>
+
+
+# Wait 1–2 minutes.
+
+# Test:
+
+# curl http://blue.blackopsghost.space
+# curl http://green.blackopsghost.space
+
+
+# You must see:
+
+# BLUE OK
+# GREEN OK
+
+
+# 👉 If this doesn’t work, STOP. TLS comes later.
+
+# 🧾 PHASE 4 — cert-manager (clean + correct)
+# 4.1 Create ClusterIssuer (correct solver)
+# apiVersion: cert-manager.io/v1
+# kind: ClusterIssuer
+# metadata:
+#   name: letsencrypt-prod
+# spec:
+#   acme:
+#     email: you@blackopsghost.space
+#     server: https://acme-v02.api.letsencrypt.org/directory
+#     privateKeySecretRef:
+#       name: letsencrypt-prod
+#     solvers:
+#     - http01:
+#         ingress:
+#           ingressClassName: nginx
+
+
+# Apply:
+
+# kubectl apply -f issuer.yaml
+
+
+# Confirm:
+
+# kubectl get clusterissuer
+
+# 🔐 PHASE 5 — TLS (final layer)
+# 5.1 Update ingress to enable TLS
+# metadata:
+#   annotations:
+#     cert-manager.io/cluster-issuer: letsencrypt-prod
+# spec:
+#   tls:
+#   - hosts:
+#     - blue.blackopsghost.space
+#     - green.blackopsghost.space
+#     secretName: prod-tls
+
+
+# Apply:
+
+# kubectl apply -f ingress.yaml
+
+# 5.2 Watch it happen (this time it will)
+# kubectl get ingress
+# kubectl get certificate -w
+
+
+# You should see:
+
+# prod-tls   True
+
+
+# And:
+
+# kubectl get secrets
+
+# prod-tls   kubernetes.io/tls
+
+# 🧠 Why this will feel different now
+
+# No reused secrets
+
+# Correct ingress class
+
+# HTTP verified before TLS
+
+# cert-manager owns the cert from birth
+
+# No redirects blocking ACME
+
+# This is the production mental model.

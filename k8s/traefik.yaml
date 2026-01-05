@@ -1,0 +1,158 @@
+# Traefik is a an ingress controller for Kubernetes
+# It is used to manage and route external traffic to services within a Kubernetes cluster.
+# Traefik supports various features such as load balancing, SSL termination, and path-based routing
+# Traefik can be installed using Helm charts or by applying Kubernetes manifests.
+# Traefik can be configured using a ConfigMap or by using command-line arguments.
+# Traefik supports dynamic configuration through the use of CRDs (Custom Resource Definitions) such
+# Key shift:
+
+# NGINX → annotations-heavy
+
+# Traefik → CRDs
+
+# IngressRoute
+
+# Middleware
+
+# TraefikService
+
+# Ingress becomes routing
+# Security becomes middleware
+# Clean separation. No magic.
+
+# Step 0: Remove NGINX ingress (important)
+# kubectl delete namespace ingress-nginx
+
+
+# Confirm ELB is gone before continuing.
+
+# Step 1: Install Traefik on EKS (Helm)
+# helm repo add traefik https://traefik.github.io/charts
+# helm repo update
+
+
+# Install:
+
+# helm install traefik traefik/traefik \
+#   --namespace traefik \
+#   --create-namespace \
+#   --set service.type=LoadBalancer
+
+
+# Check:
+
+# kubectl get svc -n traefik
+# kubectl get pods -n traefik
+
+
+# You’ll get:
+
+# traefik   LoadBalancer   xxxx.elb.amazonaws.com
+
+
+# That ELB is your new entry point.
+
+# Step 2: Rate Limiting (Traefik Middleware)
+
+# Traefik rate limiting is token-bucket based.
+
+# Create rate-limit middleware
+# apiVersion: traefik.io/v1alpha1
+# kind: Middleware
+# metadata:
+#   name: rate-limit
+# spec:
+#   rateLimit:
+#     average: 5
+#     burst: 10
+
+
+# Apply:
+
+# kubectl apply -f rate-limit.yaml
+
+
+# This middleware is reusable across routes.
+
+# Step 3: Basic Auth (Traefik-style)
+# Create htpasswd (same as before)
+# htpasswd -c users admin
+
+# Create secret (Traefik expects key = users)
+# kubectl create secret generic basic-auth \
+#   --from-file=users
+
+# Create auth middleware
+# apiVersion: traefik.io/v1alpha1
+# kind: Middleware
+# metadata:
+#   name: basic-auth
+# spec:
+#   basicAuth:
+#     secret: basic-auth
+
+
+# Apply:
+
+# kubectl apply -f auth-middleware.yaml
+
+# Step 4: Replace Ingress with IngressRoute
+
+# Now Traefik’s native routing.
+
+# Protected route → /blue
+# apiVersion: traefik.io/v1alpha1
+# kind: IngressRoute
+# metadata:
+#   name: blue-route
+# spec:
+#   entryPoints:
+#     - web
+#   routes:
+#     - match: PathPrefix(`/blue`)
+#       kind: Rule
+#       middlewares:
+#         - name: basic-auth
+#         - name: rate-limit
+#       services:
+#         - name: blue-svc
+#           port: 80
+
+# Public route → /green
+# apiVersion: traefik.io/v1alpha1
+# kind: IngressRoute
+# metadata:
+#   name: green-route
+# spec:
+#   entryPoints:
+#     - web
+#   routes:
+#     - match: PathPrefix(`/green`)
+#       kind: Rule
+#       services:
+#         - name: green-svc
+#           port: 80
+
+
+# Apply both:
+
+# kubectl apply -f .
+
+# Step 5: Test like a platform engineer
+# No auth
+# curl http://<TRAEFIK-ELB>/blue
+
+
+# → 401 Unauthorized
+
+# With auth
+# curl -u admin:password http://<TRAEFIK-ELB>/blue
+
+
+# → BLUE APP
+
+# Rate-limit test
+# for i in {1..20}; do curl -s http://<TRAEFIK-ELB>/blue; done
+
+
+# → You’ll hit 429
