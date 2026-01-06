@@ -116,3 +116,484 @@ spec:
 # AWS EBS CSI Driver (block storage, most common)
 
 # Later: EFS (shared), FSx (high perf)
+
+---
+
+# EKS → IRSA → EBS CSI Driver
+
+## Complete Notes (From Zero Cluster to CSI Pods Running)
+---
+
+## PHASE 1: Create EKS Cluster
+
+```bash
+eksctl create cluster \
+  --name rg-cluster \
+  --region ap-south-1 \
+  --nodes 3 \
+  --node-type t3.medium
+```
+
+Wait until it finishes.
+
+Verify:
+
+```bash
+kubectl get nodes
+```
+
+---
+
+## PHASE 2: Enable IAM OIDC Provider (MANDATORY FOR IRSA)
+
+> Without this → CSI driver **cannot** assume IAM role
+
+Check if OIDC exists:
+
+```bash
+aws eks describe-cluster \
+  --name rg-cluster \
+  --region ap-south-1 \
+  --query "cluster.identity.oidc.issuer" \
+  --output text
+```
+
+If empty / missing → attach it:
+
+```bash
+eksctl utils associate-iam-oidc-provider \
+  --cluster rg-cluster \
+  --region ap-south-1 \
+  --approve
+```
+
+✅ This is **one-time per cluster**
+
+---
+
+## PHASE 3: Create IAM Role for EBS CSI Driver (IRSA)
+
+This role allows Kubernetes to create EBS volumes.
+
+```bash
+eksctl create iamserviceaccount \
+  --name ebs-csi-controller-sa \
+  --namespace kube-system \
+  --cluster rg-cluster \
+  --role-name AmazonEKS_EBS_CSI_DriverRole \
+  --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
+  --approve
+```
+
+Verify ServiceAccount:
+
+```bash
+kubectl get sa ebs-csi-controller-sa -n kube-system
+```
+
+Verify IAM annotation:
+
+```bash
+kubectl get sa ebs-csi-controller-sa -n kube-system -o yaml | grep eks.amazonaws.com
+```
+
+Expected:
+
+```
+eks.amazonaws.com/role-arn
+```
+
+---
+
+## PHASE 4: Install EBS CSI Driver (EKS Addon)
+
+### Get AWS Account ID
+
+```bash
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+```
+
+### Install addon (IMPORTANT FLAGS)
+
+```bash
+aws eks create-addon \
+  --cluster-name rg-cluster \
+  --addon-name aws-ebs-csi-driver \
+  --service-account-role-arn arn:aws:iam::$ACCOUNT_ID:role/AmazonEKS_EBS_CSI_DriverRole \
+  --resolve-conflicts OVERWRITE \
+  --region ap-south-1
+```
+
+Why `--resolve-conflicts OVERWRITE`?
+
+* eksctl already created ServiceAccount
+* addon must take ownership
+* avoids CREATE_FAILED error
+
+---
+
+## PHASE 5: Verify Addon Status
+
+### AWS-level check (source of truth)
+
+```bash
+aws eks describe-addon \
+  --cluster-name rg-cluster \
+  --addon-name aws-ebs-csi-driver \
+  --region ap-south-1
+```
+
+Expected:
+
+```
+"status": "ACTIVE"
+```
+
+---
+
+## PHASE 6: Verify CSI Pods (Kubernetes-level)
+
+```bash
+kubectl get pods -n kube-system | grep ebs
+```
+
+Expected:
+
+* 2 × `ebs-csi-controller` → Running
+* 1 × `ebs-csi-node` per worker node → Running
+
+Example:
+
+```
+ebs-csi-controller   6/6   Running
+ebs-csi-node         3/3   Running
+```
+
+---
+
+## PHASE 7: Verify CSI Driver Registration
+
+```bash
+kubectl get csidrivers
+```
+
+Expected:
+
+```
+ebs.csi.aws.com
+```
+
+---
+
+## FINAL STATE CHECKLIST (MEMORIZE THIS)
+
+Before creating PVCs, ALL must be true:
+
+* ✅ `kubectl get nodes` → Ready
+* ✅ OIDC provider attached
+* ✅ IRSA role created
+* ✅ EBS CSI addon status = ACTIVE
+* ✅ CSI pods running
+* ✅ `ebs.csi.aws.com` present
+
+Only **after this**:
+
+* StorageClass
+* PVC
+* PV auto-creation
+* EBS volume in AWS
+
+---
+
+## ONE-LINE MENTAL MODEL (write this)
+
+> “On EKS, dynamic PV provisioning works only when EBS CSI driver is installed using IRSA with OIDC enabled.”
+
+---
+
+If you want, next we can:
+
+* turn this into a **one-page printable cheat sheet**
+* or move to **StorageClass → PVC → PV creation**
+* or redo the whole thing **from scratch once more** for repetition
+
+Just say what you want next.
+
+
+Alright, back to the terminal. Storage time.
+We’ll keep it **mechanical, step-by-step**, exactly how you’d run this on a fresh cluster.
+
+---
+
+# PHASE 8: StorageClass → PVC → PV (hands-on)
+
+At this point **CSI is running**, so Kubernetes can actually talk to EBS.
+
+---
+
+## Step 1 — Check existing StorageClasses (baseline)
+
+```bash
+kubectl get sc
+```
+
+You’ll probably see something like:
+
+```
+gp2 (default)
+```
+
+We **won’t use defaults**. Senior habit = explicit intent.
+
+---
+
+## Step 2 — Create your own StorageClass (gp3)
+
+Create file:
+
+```bash
+vi storageclass-gp3.yaml
+```
+
+Paste **exactly this**:
+
+```yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3-sc
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  fsType: ext4
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+```
+
+Apply it:
+
+```bash
+kubectl apply -f storageclass-gp3.yaml
+```
+
+Verify:
+
+```bash
+kubectl get sc
+```
+
+You should now see:
+
+```
+gp3-sc
+```
+
+📌 **Note for your notebook**
+
+* `WaitForFirstConsumer` = volume created only when Pod exists
+* avoids AZ mismatch
+* default choice in prod EKS
+
+---
+
+## Step 3 — Create a PVC (request storage)
+
+Create file:
+
+```bash
+vi pvc.yaml
+```
+
+Paste:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: app-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3-sc
+  resources:
+    requests:
+      storage: 10Gi
+```
+
+Apply:
+
+```bash
+kubectl apply -f pvc.yaml
+```
+
+Check status:
+
+```bash
+kubectl get pvc
+```
+
+Expected:
+
+```
+STATUS: Pending
+```
+
+✅ **This is correct**
+
+Why?
+
+* No Pod is using it yet
+* Volume creation is delayed
+
+---
+
+## Step 4 — Confirm no PV exists yet (important)
+
+```bash
+kubectl get pv
+```
+
+Expected:
+
+```
+No resources found
+```
+
+This proves:
+
+> PVC alone does NOT create storage
+
+---
+
+## Step 5 — Deploy a Pod that uses the PVC (trigger moment)
+
+Create deployment:
+
+```bash
+vi deployment.yaml
+```
+
+Paste:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pvc-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pvc-demo
+  template:
+    metadata:
+      labels:
+        app: pvc-demo
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        volumeMounts:
+        - name: data
+          mountPath: /usr/share/nginx/html
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: app-pvc
+```
+
+Apply:
+
+```bash
+kubectl apply -f deployment.yaml
+```
+
+---
+
+## Step 6 — Watch the magic happen
+
+Run these **in order**:
+
+```bash
+kubectl get pods
+```
+
+Wait until Pod = `Running`.
+
+Then:
+
+```bash
+kubectl get pvc
+kubectl get pv
+```
+
+Now you should see:
+
+* PVC → `Bound`
+* PV → created automatically
+
+🎯 **At this exact moment**:
+
+* Kubernetes created a PV
+* AWS created an EBS volume
+* Volume attached to the node
+
+---
+
+## Step 7 — Verify EBS volume in AWS (real infra)
+
+In AWS Console:
+
+```
+EC2 → Volumes
+```
+
+You’ll see:
+
+* Type: `gp3`
+* Size: `10 GiB`
+* AZ = node AZ
+* Attached to an EC2 instance
+
+This is **not a simulation**.
+You are creating real disks now.
+
+---
+
+## Step 8 — Prove persistence (non-negotiable test)
+
+Write data:
+
+```bash
+kubectl exec -it deploy/pvc-demo -- bash
+echo "hello from persistent storage" > /usr/share/nginx/html/index.html
+exit
+```
+
+Delete the pod:
+
+```bash
+kubectl delete pod -l app=pvc-demo
+```
+
+Wait for new pod to start, then:
+
+```bash
+kubectl exec -it deploy/pvc-demo -- cat /usr/share/nginx/html/index.html
+```
+
+If text is still there → **PVC works**.
+
+---
+
+## Step 9 — Understand what you just proved (write this)
+
+* Pod is ephemeral
+* PVC is not
+* PV survives pod restarts
+* EBS volume survives pod deletion
+
+This is why **databases work on Kubernetes**.
+
+---
