@@ -1,0 +1,118 @@
+#CSI ==? A way to use storage like (hard drives ) on kubernetes
+# CSI stands for Container Storage Interface. It is a standard for exposing arbitrary block and file storage systems to containerized workloads on Kubernetes (and other container orchestration systems).
+# Gives the ability to use storage, which is called volumes in kubernetes, in a consistent way across different storage providers.
+# Various storage interfaces available 
+# it is a plugin much like CNI for networking and CRI for container runtimes.
+ 
+## STORAGE CLASS
+# A StorageClass provides a way for administrators to describe the "classes" of storage they offer.
+# Different classes might map to quality-of-service levels, or to backup policies, or to arbitrary policies determined by the cluster administrators.
+# Each StorageClass contains the fields provisioner, parameters, and reclaimPolicy, which are used when a PersistentVolume belonging to the class is dynamically provisioned.
+# When no StorageClass is specified, the default StorageClass for the cluster is used.
+# A cluster may have multiple StorageClasses.
+# StorageClasses are non-namespaced; they exist at the cluster level. 
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: fast
+provisioner: kubernetes.io/aws-ebs # example for AWS EBS
+parameters: 
+  type: gp2
+  fsType: ext4
+reclaimPolicy: Retain # Retain, Delete, Recycle means what happens to the volume when released from its claim  
+mountOptions:
+  - debug # mount options for the volume  
+volumeBindingMode: Immediate # Immediate or WaitForFirstConsumer
+allowVolumeExpansion: true # allow resizing of the volume 
+# end of storageclass
+
+## PERSISTENT VOLUME  
+# A PersistentVolume (PV) is a piece of storage in the cluster that has been provisioned by an administrator or dynamically provisioned using Storage Classes.
+# It is a resource in the cluster just like a node is a cluster resource.
+# PVs are volume plugins like Volumes, but have a lifecycle independent of any individual Pod that uses the PV.
+# This API object captures the details of the implementation of the storage, be it NFS, iSCSI, or a cloud-provider-specific storage system.
+--- 
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-volume
+spec:
+  capacity: 
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: fast
+  hostPath: 
+     path: /mnt/data
+# end of persistent volume
+
+# PersistenVolumeReclaimPolicy
+# Retain: manual reclamation required 
+# If a user deletes persistent volume claim (PVC) that is bound to a persistent volume (PV) with a Retain reclaim policy, the PV will not be deleted. Instead, it will enter a Released state, 
+# indicating that the PV is no longer bound to a PVC but still contains data. The administrator must manually handle the cleanup and reclamation of the PV.
+
+# Recycle: basic scrub (delete data)
+# If a user deletes a PVC that is bound to a PV with a Recycle reclaim policy, the PV will be scrubbed using a basic delete operation (rm -rf /thevolume/*) and then made available for a new claim.
+# Note: The Recycle reclaim policy is deprecated in newer versions of Kubernetes and is not recommended for production use.
+
+# Delete: automatic deletion
+# If a user deletes a PVC that is bound to a PV with a Delete reclaim policy, the associated PV will be automatically deleted along with the underlying storage asset.
+# This is commonly used with dynamically provisioned volumes, where the storage is created and managed by the cluster.  
+
+## PERSISTENT VOLUME CLAIM
+# A PersistentVolumeClaim (PVC) is a request for storage by a user.
+# It is similar to a Pod. Pods consume node resources and PVCs consume PV resources.
+# Pods can request specific levels of resources (CPU and Memory); PVCs can request specific sizes and access modes (e.g., can be mounted once read/write or many times read-only).
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-volume
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: fast
+# end of persistent volume claim
+
+## USING PVC IN A POD
+# A Pod can use a PersistentVolumeClaim as a volume.
+---
+apiVersion: v1
+kind: Pod
+metadata:   
+  name: mypod
+spec:
+  containers:
+    - name: myfrontend
+      image: nginx      
+      volumeMounts:
+        - mountPath: "/usr/share/nginx/html"
+          name: mypdv
+  volumes:
+    - name: mypdv
+      persistentVolumeClaim:
+        claimName: pvc-volume
+# end of pod using pvc  
+
+
+## Mental model (senior-level):
+
+# CSI Driver = translator between Kubernetes ↔ cloud storage
+
+# StorageClass = how volumes are created
+
+# PVC = request for storage (by app)
+
+# PV = actual volume (usually auto-created on EKS)
+
+# Pod = mounts PVC → gets disk
+
+# On EKS, we mostly use:
+
+# AWS EBS CSI Driver (block storage, most common)
+
+# Later: EFS (shared), FSx (high perf)
