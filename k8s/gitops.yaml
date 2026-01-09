@@ -1,0 +1,41 @@
+# GITOPS
+# This file defines the GitOps configuration for deploying applications
+# and managing infrastructure using Git as the source of truth.
+# It includes definitions for repositories, deployment strategies,
+# and environment-specific settings.
+
+# ARGOCD
+# helm repo add argo https://argoproj.github.io/argo-helm
+# helm install argo-cd argo/argo-cd --namespace argocd --create-namespace  
+# kubectl get secrets argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" | base64 -d; echo
+# kubectl port-forward svc/argocd-server -n argocd 8080:443
+# Access ArgoCD UI at https://localhost:8080
+# Login with username: admin and password from the previous command
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: my-application
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: '  ' # Git repository URL
+    path: '  '    # Path to application manifests
+    helm:
+      releaseName: my-application
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true  
+    targetRevision: HEAD  
+
+# argocd app create my-application \
+#   --repo ' ' \  # Git repository URL
+#   --path ' ' \  # Path to application manifests
+#   --dest-server 'https://kubernetes.default.svc' \
+#   --dest-namespace default
+# argocd app sync my-application
+# argocd app delete my-application  --cascade
