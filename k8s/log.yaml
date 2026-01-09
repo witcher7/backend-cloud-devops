@@ -1,0 +1,61 @@
+## Logging options for control plane 
+# Use a node-level logging agent that runs on every node to collect and
+# forward logs from all pods and system components to a centralized logging
+# backend.
+
+## Include a dedicated sidecar container in each pod to handle logging.
+## Push logs directly to a backend from within the application container.
+
+## WHAT TO LOG FOR WORKER NODES
+# Network logs from kube-proxy, Etcd, and container runtime.
+# System logs from the operating system and node-level components.
+# Kubelet logs for monitoring pod and node status.
+
+
+# Policy enforcement logs for auditing access and actions on the cluster.
+# Application logs from user-deployed applications running on worker nodes.
+# OPA , Kyverno logs for policy enforcement and compliance monitoring.
+# Security logs for intrusion detection and vulnerability monitoring.
+# Performance metrics logs for resource usage and optimization.
+# Custom application logs as needed for specific workloads.
+# Monitoring logs for health checks and alerts.
+# Cluster autoscaler logs for scaling events and decisions.
+# for example: log level: info, debug, error
+
+
+## OPA implementation
+# Config = definition of what gatekeeper is allowed to create policies for 
+# Contstraing template = Rule/Policy that you want to configure for your environment
+# constraing config = bringing the constraing to life
+
+# helm repo add gatekeeper https://open-policy-agent.github.io/gatekeeper/charts
+# helm install gatekeeper/gatekeeper --name-template gatekeeper --namespace gatekeeper-system --create-namespace
+
+apiVersion: config.gatekeeper.sh/v1alpha1
+kind: Config
+metadata:
+  name: config
+  namespace: gatekeeper-system
+spec:
+ sync:
+   syncOnly:
+     - group: ""
+       version: v1
+       kind: Pod
+     - group: "apps"
+       version: v1
+       kind: Deployment
+
+--- 
+
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: blocklatesttag
+metadata:
+  name: block-latest-tag
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+  parameters:
+    annotation:: "no-latest-tag-used"
