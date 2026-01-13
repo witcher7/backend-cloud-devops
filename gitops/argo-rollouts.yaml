@@ -1,0 +1,267 @@
+Now we enter *release engineering*.
+This is where “deployment” becomes “controlled rollout”.
+
+We start with Argo Rollouts itself.
+
+Argo Rollouts replaces normal Kubernetes Deployments with a smarter controller that supports:
+
+* Canary
+* Blue/Green
+* Traffic shifting
+* Pause, promote, abort
+
+First install it.
+
+On your EC2:
+
+```bash
+kubectl create namespace argo-rollouts
+```
+
+```bash
+kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+```
+
+Check:
+
+```bash
+kubectl get pods -n argo-rollouts
+```
+
+You want:
+
+```
+argo-rollouts-xxxxx   1/1   Running
+```
+
+That means the rollout controller is alive.
+
+Now install the Rollouts CLI:
+
+```bash
+curl -LO https://github.com/argoproj/argo-rollouts/releases/latest/download/kubectl-argo-rollouts-linux-amd64
+sudo install -m 555 kubectl-argo-rollouts-linux-amd64 /usr/local/bin/kubectl-argo-rollouts
+```
+
+Verify:
+
+```bash
+kubectl argo rollouts version
+```
+
+---
+
+Mental model:
+
+| Normal Deployment        | Rollout               |
+| ------------------------ | --------------------- |
+| All pods update together | Pods update gradually |
+| No traffic control       | Traffic shifts by %   |
+| No pause                 | Pause & promote       |
+| No abort                 | Abort supported       |
+
+Rollout is a *Deployment with a brain*.
+
+---
+
+Next we convert your **simple-flask-app** into a Rollout.
+
+Instead of:
+
+```yaml
+kind: Deployment
+```
+
+We use:
+
+```yaml
+kind: Rollout
+```
+
+And define a strategy:
+
+* Canary first
+* Then Blue/Green
+
+But we go step by step.
+
+First we do **Canary** because it teaches traffic control.
+
+Flow:
+
+1. Change Deployment → Rollout
+2. Add canary strategy
+3. Push to Git
+4. ArgoCD deploys it
+5. New version rolls out gradually
+
+Before writing YAML, check:
+
+Your simple app is here:
+
+```
+argocd-gitops-repo/simple-flask/k8s/
+  ├── deployment.yaml
+  └── service.yaml
+```
+
+We will:
+
+* Rename deployment.yaml → rollout.yaml
+* Replace its content
+
+But pause one second and let the model settle:
+
+You are no longer “deploying apps”.
+You’re defining *release behavior*.
+
+---- 
+
+
+Alright, welcome to release engineering.
+
+We turn your normal deployment into a **Canary Rollout**.
+
+Right now you have:
+
+```
+simple-flask/k8s/
+  ├── deployment.yaml
+  └── service.yaml
+```
+
+We will replace `deployment.yaml` with a Rollout.
+
+First go there:
+
+```bash
+cd ~/argocd-gitops-repo/simple-flask/k8s
+```
+
+Remove the old deployment:
+
+```bash
+rm deployment.yaml
+```
+
+Create a new file:
+
+```bash
+nano rollout.yaml
+```
+
+Put this:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: simple-flask
+spec:
+  replicas: 4
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: simple-flask
+  template:
+    metadata:
+      labels:
+        app: simple-flask
+    spec:
+      containers:
+      - name: simple-flask
+        image: witcher7/argocd-flask-app:v2
+        ports:
+        - containerPort: 5000
+
+  strategy:
+    canary:
+      steps:
+      - setWeight: 25
+      - pause: {duration: 30}
+      - setWeight: 50
+      - pause: {duration: 30}
+      - setWeight: 75
+      - pause: {duration: 30}
+      - setWeight: 100
+```
+
+Your `service.yaml` stays the same. It still selects:
+
+```yaml
+selector:
+  app: simple-flask
+```
+
+So traffic automatically shifts to new pods based on weight.
+
+Now commit:
+
+```bash
+git add .
+git commit -m "Convert simple-flask Deployment to Canary Rollout"
+git push origin main
+```
+
+Because your app is managed by ArgoCD:
+
+* ArgoCD will detect the change
+* Replace Deployment with Rollout
+* Rollout controller takes control
+* Canary process begins
+
+Now watch it.
+
+In one terminal:
+
+```bash
+kubectl argo rollouts get rollout simple-flask -n dev
+```
+
+You’ll see something like:
+
+```
+Step: 1/7
+SetWeight: 25
+Pause: 30s
+```
+
+Then:
+
+```
+SetWeight: 50
+Pause: 30s
+...
+```
+
+In another terminal:
+
+```bash
+kubectl get pods -n dev
+```
+
+You’ll see:
+
+* Old pods (stable)
+* New pods (canary)
+  Coexisting.
+
+That’s the first time you see **two versions live at once**.
+
+This is no longer deployment.
+This is controlled experimentation in production.
+
+Once it finishes, rollout will be:
+
+```
+Healthy
+Completed
+```
+
+---
+
+For your notes:
+
+> Canary deployment gradually shifts traffic to a new version in controlled percentages, allowing validation before full rollout. Argo Rollouts manages this using a Rollout resource and step-based traffic weighting.
+
+You’ve just crossed from DevOps into Release Engineering.
