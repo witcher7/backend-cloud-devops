@@ -1,0 +1,214 @@
+Before we touch users and RBAC, we draw boundaries.
+Projects are those boundaries.
+
+Right now everything lives in `default` project. That’s wild-west mode.
+
+We’ll create three:
+
+* `dev-project`
+* `staging-project`
+* `prod-project`
+
+Each one will:
+
+* Allow only one namespace
+* Allow only your GitOps repo
+* Protect environments from each other
+
+This is how big orgs prevent “oops I deployed prod into dev”.
+
+---
+
+Create dev project:
+
+```bash
+nano dev-project.yaml
+```
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: dev-project
+  namespace: argocd
+spec:
+  description: Dev environment project
+  sourceRepos:
+    - https://github.com/<your-username>/argocd-gitops-repo.git
+  destinations:
+    - namespace: dev
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+```
+
+Apply:
+
+```bash
+kubectl apply -f dev-project.yaml
+```
+
+---
+
+Create staging project:
+
+```bash
+nano staging-project.yaml
+```
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: staging-project
+  namespace: argocd
+spec:
+  description: Staging environment project
+  sourceRepos:
+    - https://github.com/<your-username>/argocd-gitops-repo.git
+  destinations:
+    - namespace: staging
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+```
+
+Apply:
+
+```bash
+kubectl apply -f staging-project.yaml
+```
+
+---
+
+Create prod project:
+
+```bash
+nano prod-project.yaml
+```
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: prod-project
+  namespace: argocd
+spec:
+  description: Production environment project
+  sourceRepos:
+    - https://github.com/<your-username>/argocd-gitops-repo.git
+  destinations:
+    - namespace: prod
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+```
+
+Apply:
+
+```bash
+kubectl apply -f prod-project.yaml
+```
+
+---
+
+Verify:
+
+```bash
+kubectl get appprojects -n argocd
+```
+
+You should see:
+
+```
+dev-project
+staging-project
+prod-project
+```
+
+---
+
+Now we attach your existing apps to these projects.
+
+Edit your ArgoCD Application files:
+
+For `flask-dev.yaml`:
+
+```yaml
+spec:
+  project: dev-project
+```
+
+For `flask-staging.yaml`:
+
+```yaml
+spec:
+  project: staging-project
+```
+
+For `flask-prod.yaml`:
+
+```yaml
+spec:
+  project: prod-project
+```
+
+Apply them again:
+
+```bash
+kubectl apply -f flask-dev.yaml
+kubectl apply -f flask-staging.yaml
+kubectl apply -f flask-prod.yaml
+```
+
+ArgoCD will not redeploy pods.
+It will only change *ownership rules*.
+
+---
+
+What you just built:
+
+| Project         | Controls               |
+| --------------- | ---------------------- |
+| dev-project     | Only dev namespace     |
+| staging-project | Only staging namespace |
+| prod-project    | Only prod namespace    |
+
+Even if someone tries:
+
+```yaml
+namespace: prod
+```
+
+inside dev-project → ArgoCD will reject it.
+
+That’s blast-radius control.
+
+---
+
+Now your platform is segmented:
+
+```
+Dev world     → dev-project
+Staging world → staging-project
+Prod world    → prod-project
+```
+
+Next step is what you were waiting for:
+
+We create **users and roles**:
+
+* dev-user → only dev-project
+* ops-user → prod-project
+* viewer → read-only
+
+That’s when ArgoCD stops being “your tool” and becomes “your platform”.
+
+Say:
+
+> projects ready
+
+And we move to **RBAC and users**.

@@ -1,0 +1,234 @@
+Alright. Now we give people *identities* and *limits*. This is where ArgoCD becomes enterprise-grade.
+
+First, understand one thing clearly:
+
+ArgoCD RBAC is controlled by a ConfigMap:
+
+```
+argocd-rbac-cm
+```
+
+Inside it you define:
+
+* Roles
+* What each role can do
+* Which user gets which role
+
+Pattern:
+
+```
+user → role → permissions → project → namespace
+```
+
+No shortcuts.
+
+Let’s open the RBAC config:
+
+```bash
+kubectl edit configmap argocd-rbac-cm -n argocd
+```
+
+You’ll see something like:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+data:
+  policy.default: role:readonly
+```
+
+We’ll replace/add this:
+
+```yaml
+data:
+  policy.default: role:readonly
+  policy.csv: |
+    # Dev role: full control only on dev project
+    p, role:dev, applications, get, dev-project/*, allow
+    p, role:dev, applications, sync, dev-project/*, allow
+    p, role:dev, applications, action/*, dev-project/*, allow
+
+    # Staging role
+    p, role:staging, applications, get, staging-project/*, allow
+    p, role:staging, applications, sync, staging-project/*, allow
+
+    # Prod role (Ops)
+    p, role:ops, applications, get, prod-project/*, allow
+    p, role:ops, applications, sync, prod-project/*, allow
+    p, role:ops, applications, action/*, prod-project/*, allow
+
+    # Read-only role
+    p, role:viewer, applications, get, */*, allow
+
+    # Map users to roles
+    g, dev-user, role:dev
+    g, staging-user, role:staging
+    g, ops-user, role:ops
+    g, viewer-user, role:viewer
+```
+
+Save and exit.
+
+Now restart ArgoCD server so RBAC reloads:
+
+```bash
+kubectl rollout restart deployment argocd-server -n argocd
+```
+
+Wait:
+
+```bash
+kubectl get pods -n argocd
+```
+
+All must be Running.
+
+---
+
+Now we create users.
+
+ArgoCD users are created via another configmap:
+
+```bash
+kubectl edit configmap argocd-cm -n argocd
+```
+
+Add under `data:`:
+
+```yaml
+accounts.dev-user: apiKey, login
+accounts.staging-user: apiKey, login
+accounts.ops-user: apiKey, login
+accounts.viewer-user: login
+```
+
+Save and restart again:
+
+```bash
+kubectl rollout restart deployment argocd-server -n argocd
+```
+
+---
+
+Now set passwords for each user using CLI:
+
+Login as admin:
+
+```bash
+argocd login 65.2.90.252.nip.io --insecure
+```
+
+Then:
+
+```bash
+argocd account update-password --account dev-user
+argocd account update-password --account staging-user
+argocd account update-password --account ops-user
+argocd account update-password --account viewer-user
+```
+
+Give each a password.
+
+---
+
+Now test:
+
+Login as dev-user:
+
+```bash
+argocd login 65.2.90.252.nip.io --username dev-user --password <password>
+argocd app list
+```
+
+Try:
+
+```bash
+argocd app sync flask-dev
+```
+
+Works.
+
+Try:
+
+```bash
+argocd app sync flask-prod
+```
+
+Denied.
+
+That’s RBAC working.
+
+---
+
+Your system now has:
+
+| User         | Power                   |
+| ------------ | ----------------------- |
+| dev-user     | Can deploy only dev     |
+| staging-user | Can deploy only staging |
+| ops-user     | Can deploy only prod    |
+| viewer-user  | Can only see            |
+
+
+Two things happening here:
+
+1. Your ArgoCD is now behind Ingress + HTTPS
+2. The CLI needs one small extra flag when ArgoCD is accessed through nginx ingress.
+
+You must use `--grpc-web`.
+
+Without it, auth fails even with correct password.
+
+So login like this:
+
+```bash
+argocd login 65.2.90.252.nip.io --insecure --grpc-web
+```
+
+Then enter:
+
+```
+Username: admin
+Password: <your admin password>
+```
+
+If you forgot the admin password, regenerate it:
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret \
+-o jsonpath="{.data.password}" | base64 -d && echo
+```
+
+Use that password to login again:
+
+```bash
+argocd login 65.2.90.252.nip.io --insecure --grpc-web
+```
+
+
+```bash
+argocd account update-password --account dev-user
+argocd account update-password --account staging-user
+argocd account update-password --account ops-user
+argocd account update-password --account viewer-user
+```
+
+Each command will prompt you to set a password.
+
+---
+
+Tiny mental note for your notes:
+
+When ArgoCD is behind Ingress:
+
+```bash
+argocd login <host> --grpc-web
+```
+
+When it’s via port-forward:
+
+```bash
+argocd login localhost:8080
+```
