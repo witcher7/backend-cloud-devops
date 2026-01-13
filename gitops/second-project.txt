@@ -483,3 +483,124 @@ If you see:
 ```
 ArgoCD King is online 👑
 ```
+
+
+Now we level up. Versioning + rollback. This is where GitOps feels illegal.
+
+Right now you have `v1` running. Let’s ship `v2` and let Git move production.
+
+Go to your app repo:
+
+```bash
+cd ~/argocd-app-repo
+```
+
+Edit app:
+
+```bash
+nano app.py
+```
+
+Change the message:
+
+```python
+return "ArgoCD King v2 is online 🚀"
+```
+
+Build new image:
+
+```bash
+docker build -t <dockerhub-username>/argocd-flask-app:v2 .
+docker push <dockerhub-username>/argocd-flask-app:v2
+```
+
+Now switch to GitOps repo:
+
+```bash
+cd ~/argocd-gitops-repo/flask-app/k8s
+nano deployment.yaml
+```
+
+Change image:
+
+```yaml
+image: <dockerhub-username>/argocd-flask-app:v2
+```
+
+Commit:
+
+```bash
+git add .
+git commit -m "Upgrade flask app to v2"
+git push origin main
+```
+
+Do nothing else.
+No kubectl. No UI clicks.
+
+ArgoCD will:
+
+* Detect Git change
+* Pull new manifest
+* Roll your pods
+* Deploy v2
+
+Refresh browser:
+
+```
+http://localhost:5000
+```
+
+You should see:
+
+```
+ArgoCD King v2 is online 🚀
+```
+
+That’s a **production deployment using only Git**.
+
+Now the fun part: rollback.
+
+Rollback = Git revert.
+
+```bash
+git log --oneline
+```
+
+Copy the commit hash of your *previous* commit (v1).
+
+Then:
+
+```bash
+git revert <commit-hash>
+git push origin main
+```
+
+Watch ArgoCD.
+
+It will:
+
+* Detect revert
+* Pull old image reference
+* Roll back pods
+* Restore v1
+
+Your browser will go back to:
+
+```
+ArgoCD King is online 👑
+```
+
+This is rollback without:
+
+* Helm history
+* Kubernetes tricks
+* Custom tooling
+
+Just Git.
+
+Deploy = Git commit
+Rollback = Git revert
+
+That’s the cleanest deployment model that exists.
+
