@@ -35,3 +35,21 @@ USER                         K8s cluster
    |         |     sync cluster status
    Deployment
     Manifests
+
+## Practical
+
+## eksctl create cluster \
+  # --name argocd-king-cluster \
+  # --region ap-south-1 \
+  # --nodegroup-name workers \
+  # --node-type t3.medium \
+  # --nodes 2 \
+  # --nodes-min 1 \
+  # --nodes-max 3 \
+  # --managed
+
+## kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml  
+
+## kubectl get pods -n argocd
+
+## kubectl port-forward svc/argocd-server -n argocd 8080:443
