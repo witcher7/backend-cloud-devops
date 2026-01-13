@@ -1,0 +1,228 @@
+Good choice. This is the clean path. No spaghetti YAML. No copy-paste hell.
+
+We’ll convert your current setup into a proper Kustomize layout.
+
+Right now you have:
+
+```
+flask-app/k8s/
+  ├── deployment.yaml
+  └── service.yaml
+```
+
+We’re going to reshape it into:
+
+```
+flask-app/
+├── base/
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   └── kustomization.yaml
+└── overlays/
+    ├── dev/
+    │   ├── kustomization.yaml
+    │   └── replica-patch.yaml
+    ├── staging/
+    │   ├── kustomization.yaml
+    │   └── replica-patch.yaml
+    └── prod/
+        ├── kustomization.yaml
+        └── replica-patch.yaml
+```
+
+Base = truth
+Overlays = personalities
+
+Let’s do this step by step.
+
+Go to your GitOps repo:
+
+```bash
+cd ~/argocd-gitops-repo/flask-app
+```
+
+Create folders:
+
+```bash
+mkdir base overlays
+mkdir overlays/dev overlays/staging overlays/prod
+```
+
+Move your existing manifests into base:
+
+```bash
+mv k8s/deployment.yaml base/
+mv k8s/service.yaml base/
+rm -rf k8s
+```
+
+Now create base kustomization:
+
+```bash
+nano base/kustomization.yaml
+```
+
+Put:
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+  - service.yaml
+```
+
+This means:
+“Base is just deployment + service. No env logic.”
+
+Now let’s create DEV overlay.
+
+Create:
+
+```bash
+nano overlays/dev/kustomization.yaml
+```
+
+Put:
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+namespace: dev
+
+patchesStrategicMerge:
+  - replica-patch.yaml
+```
+
+Now patch file:
+
+```bash
+nano overlays/dev/replica-patch.yaml
+```
+
+Put:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-app
+spec:
+  replicas: 1
+```
+
+DEV = light, cheap, minimal.
+
+Now STAGING.
+
+```bash
+nano overlays/staging/kustomization.yaml
+```
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+namespace: staging
+
+patchesStrategicMerge:
+  - replica-patch.yaml
+```
+
+```bash
+nano overlays/staging/replica-patch.yaml
+```
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-app
+spec:
+  replicas: 2
+```
+
+Now PROD.
+
+```bash
+nano overlays/prod/kustomization.yaml
+```
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+namespace: prod
+
+patchesStrategicMerge:
+  - replica-patch.yaml
+```
+
+```bash
+nano overlays/prod/replica-patch.yaml
+```
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-app
+spec:
+  replicas: 3
+```
+
+Now create namespaces:
+
+```bash
+kubectl create namespace dev
+kubectl create namespace staging
+kubectl create namespace prod
+```
+
+Before ArgoCD, test locally:
+
+```bash
+kubectl kustomize overlays/dev
+kubectl kustomize overlays/staging
+kubectl kustomize overlays/prod
+```
+
+You’ll see:
+
+* Same deployment
+* Different replicas
+* Different namespaces
+  Same base, different realities.
+
+Commit everything:
+
+```bash
+git add .
+git commit -m "Refactor Flask app manifests using Kustomize with dev/staging/prod overlays"
+git push origin main
+```
+
+Right now you’ve built a **professional GitOps structure**.
+This is how platform teams organize production.
+
+Next step:
+We create **three ArgoCD Applications**:
+
+* flask-dev
+* flask-staging
+* flask-prod
+
+Each pointing to a different overlay path.
+
+That’s when your single app becomes a multi-environment system.

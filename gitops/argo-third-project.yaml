@@ -1,0 +1,75 @@
+cd ~
+mkdir argocd-apps
+cd argocd-apps
+---
+
+# CREATE DEV app
+nano flask-dev-app.yaml
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: flask-dev
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/<your-username>/argocd-gitops-repo.git
+    targetRevision: HEAD
+    path: flask-app/overlays/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+---
+
+### STAGING 
+
+nano flask-staging.yaml
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: flask-staging
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/<your-username>/argocd-gitops-repo.git
+    targetRevision: HEAD
+    path: flask-app/overlays/staging
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+---
+
+# PRODUCTION
+nano flask-prod.yaml
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: flask-prod
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/<your-username>/argocd-gitops-repo.git
+    targetRevision: HEAD
+    path: flask-app/overlays/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
