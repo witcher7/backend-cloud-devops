@@ -1,0 +1,37 @@
+# GITOPS 
+# Argo CD helps the kubernetes to sync the cluster with the git repository
+# Argo CD is a declarative, GitOps continuous delivery tool for Kubernetes
+# gitops is a set of practices that uses git as a single source of truth for your infrastructure
+# It automates the process of deploying and managing your applications by ensuring the state of your cluster matches the state of your git repository
+# is always in sync with desired state
+
+# Repository is where the desired state of the application is stored in the form of kubernetes resources
+# Argo cd monitors the specified branches, tags or commits in the git repo for changes
+
+# Sync Policy determines how Argo CD syncs the cluster with the git repository
+# Sync Policy can be set to manual, auto or disabled
+# manual - sync is triggered manually
+# auto - sync is triggered automatically on changes in the git repository
+# disabled - sync is disabled
+
+# Sync operation is the process of syncing the cluster with the git repository
+# Sync operation can be triggered manually or automatically based on the sync policy  
+
+# Health Status is the health of the application
+# Health Status can be set to healthy, progress, error or unknown
+# healthy - application is healthy
+# progress - application is in progress
+# error - application is in error
+# unknown - application is unknown
+
+# Self-Healing: Argo CD can automatically roll back to a previous version of the application if the current version is in error
+# Self-Healing is enabled by default
+
+
+     GITHUB --- JENKINS --> Image Registry (Dockerhub AWS ECR)
+    /                            |
+USER                         K8s cluster 
+   |         -- ArgoCD -----------|
+   |         |     sync cluster status
+   Deployment
+    Manifests
