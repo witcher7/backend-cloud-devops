@@ -53,3 +53,10 @@ USER                         K8s cluster
 ## kubectl get pods -n argocd
 
 ## kubectl port-forward svc/argocd-server -n argocd 8080:443
+# ssh -i argocd-key.pem -L 8080:localhost:8080 ubuntu@<EC2_PUBLIC_IP>
+# https://localhost:8080
+
+# argocd login localhost:8080
+# kubectl get secret argocd-initial-admin-secret -n argocd \
+#  -o jsonpath="{.data.password}" | base64 -d && echo
+
