@@ -1,0 +1,211 @@
+Kustomize is basically **“GitOps-friendly Kubernetes configuration management.”**
+No templates, no variables files, no Helm logic. Just pure YAML + overlays.
+
+It works on one idea:
+
+> Base = common truth
+> Overlay = environment-specific changes
+
+You don’t copy files.
+You *compose* them.
+
+---
+
+Mental model:
+
+```
+Base → what never changes
+Overlay → what must change per environment
+Result → final manifest ArgoCD applies
+```
+
+Think like layers in Photoshop:
+
+* Base is the original image
+* Overlays are adjustment layers
+* Final render is what Kubernetes sees
+
+---
+
+Core folder structure:
+
+```
+flask-app/
+├── base/
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   └── kustomization.yaml
+└── overlays/
+    ├── dev/
+    │   └── kustomization.yaml
+    ├── staging/
+    │   └── kustomization.yaml
+    └── prod/
+        └── kustomization.yaml
+```
+
+Base = canonical app
+Overlays = environment personalities
+
+---
+
+Base kustomization.yaml example:
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+  - service.yaml
+```
+
+This just says:
+
+> “These are my base Kubernetes objects.”
+
+---
+
+Overlay kustomization.yaml example (dev):
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+namespace: dev
+
+patchesStrategicMerge:
+  - replica-patch.yaml
+```
+
+Translation:
+
+* Take everything from base
+* Put it in namespace `dev`
+* Apply small patches
+
+---
+
+Patch example (replica override):
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-app
+spec:
+  replicas: 1
+```
+
+No full deployment file.
+Just what changes.
+
+---
+
+Another patch example (resources):
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-app
+spec:
+  template:
+    spec:
+      containers:
+      - name: flask-app
+        resources:
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+```
+
+You surgically modify only what matters.
+
+---
+
+Kustomize supports:
+
+| Feature            | Purpose                  |
+| ------------------ | ------------------------ |
+| resources          | Include YAML files       |
+| patches            | Modify specific fields   |
+| images             | Override image tags      |
+| namespace          | Set namespace            |
+| commonLabels       | Add labels everywhere    |
+| namePrefix         | Add prefixes             |
+| nameSuffix         | Add suffixes             |
+| configMapGenerator | Auto-generate ConfigMaps |
+| secretGenerator    | Auto-generate Secrets    |
+
+---
+
+Image version override example:
+
+```yaml
+images:
+  - name: myuser/argocd-flask-app
+    newTag: v2
+```
+
+So you never touch deployment.yaml again for versions.
+
+---
+
+Command-line usage (for testing locally):
+
+Render manifests:
+
+```bash
+kubectl kustomize overlays/dev
+```
+
+Apply directly:
+
+```bash
+kubectl apply -k overlays/dev
+```
+
+Delete:
+
+```bash
+kubectl delete -k overlays/dev
+```
+
+---
+
+How ArgoCD uses Kustomize:
+
+In ArgoCD Application:
+
+```yaml
+source:
+  repoURL: https://github.com/you/argocd-gitops-repo.git
+  path: flask-app/overlays/dev
+  targetRevision: HEAD
+```
+
+ArgoCD:
+
+1. Pulls repo
+2. Runs kustomize build
+3. Applies result to cluster
+
+No extra setup needed. Native support.
+
+---
+
+Why Kustomize is perfect for GitOps:
+
+| Problem          | Kustomize solves        |
+| ---------------- | ----------------------- |
+| YAML duplication | Removed                 |
+| Multi-env drift  | Controlled              |
+| Clean diffs      | Small Git changes       |
+| Review clarity   | Only env deltas visible |
+| Rollback safety  | Just Git revert         |
+
+---
