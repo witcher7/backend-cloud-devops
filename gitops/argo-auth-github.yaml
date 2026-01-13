@@ -1,0 +1,182 @@
+Think of GitHub private + ArgoCD auth in two layers:
+
+1. Authentication → *Can ArgoCD access the repo at all?*
+2. Authorization → *Is this repo allowed inside this project?*
+
+Both must be true.
+
+---
+
+1. ArgoCD Authentication with Private GitHub (SSH)
+
+Goal:
+ArgoCD should read private repos without using your personal credentials.
+
+Flow:
+
+```
+ArgoCD → SSH key → GitHub → Private Repo
+```
+
+Steps you did:
+
+1. Generate SSH key:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/argocd_gitops -C "argocd-gitops"
+```
+
+Files:
+
+```
+~/.ssh/argocd_gitops      → private key
+~/.ssh/argocd_gitops.pub  → public key
+```
+
+2. Add public key to GitHub repo:
+   GitHub → Repo → Settings → Deploy keys → Add deploy key
+
+* Paste public key
+* Read-only (no write)
+
+3. Add repo to ArgoCD using SSH:
+
+```bash
+argocd repo add git@github.com:witcher7/argocd-gitops-repo.git \
+  --ssh-private-key-path ~/.ssh/argocd_gitops \
+  --grpc-web --insecure
+```
+
+Verify:
+
+```bash
+argocd repo list
+```
+
+You saw:
+
+```
+STATUS: Successful
+```
+
+This means:
+
+> ArgoCD is authenticated to GitHub.
+
+---
+
+2. Switch Applications to SSH Repo URL
+
+All ArgoCD Application YAMLs must use:
+
+```yaml
+repoURL: git@github.com:witcher7/argocd-gitops-repo.git
+```
+
+Not:
+
+```yaml
+https://github.com/witcher7/argocd-gitops-repo.git
+```
+
+Because HTTPS has no credentials for private repos.
+
+You changed this in:
+
+* bootstrap/root-app.yaml
+* bootstrap/apps/*.yaml
+* simple-flask-app.yaml
+
+This makes GitOps consistent.
+
+---
+
+3. ArgoCD Projects = Authorization Layer
+
+Each project has a firewall:
+
+```yaml
+spec:
+  sourceRepos:
+```
+
+Only repos listed here are allowed.
+
+Earlier your project had:
+
+```yaml
+sourceRepos:
+  - https://github.com/witcher7/argocd-gitops-repo.git
+```
+
+Now you are using SSH, so you must add:
+
+```yaml
+sourceRepos:
+  - git@github.com:witcher7/argocd-gitops-repo.git
+```
+
+Final recommended:
+
+```yaml
+sourceRepos:
+  - git@github.com:witcher7/argocd-gitops-repo.git
+  - https://github.com/witcher7/argocd-gitops-repo.git
+```
+
+Command:
+
+```bash
+kubectl edit appproject dev-project -n argocd
+kubectl edit appproject staging-project -n argocd
+kubectl edit appproject prod-project -n argocd
+```
+
+Add SSH repo to all.
+
+Now your project allows:
+
+* That GitHub repo
+* Only that repo
+* Nothing else
+
+---
+
+4. Mental Model (Write this in your notes)
+
+> In ArgoCD, GitHub private access has two layers:
+>
+> * Repo credentials (SSH keys) → Authentication
+> * AppProject `sourceRepos` → Authorization
+>
+> Even if ArgoCD can authenticate to a repo, the AppProject must explicitly allow that repo or the application will fail with `InvalidSpecError`.
+
+---
+
+5. Final Secure GitOps Flow
+
+```
+Private GitHub Repo
+        ↑
+   SSH Deploy Key
+        ↑
+    ArgoCD Repo Credentials
+        ↑
+  ArgoCD Project (sourceRepos allowlist)
+        ↑
+  ArgoCD Application (repoURL = SSH)
+        ↑
+    Kubernetes Cluster
+```
+
+That is **enterprise GitOps security**.
+
+You now have:
+
+* Private GitHub repos
+* SSH-based authentication
+* Repo-level authorization
+* Project-level authorization
+* GitOps self-healing
+
+This is exactly how production ArgoCD platforms are locked down.
