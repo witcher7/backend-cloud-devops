@@ -1,0 +1,141 @@
+Yeah, you’re thinking correctly.
+Right now you’re *platform-ready*, but not *operator-fluent*. That’s the gap between “I built ArgoCD” and “I drive ArgoCD”.
+
+UI and YAML made you an architect.
+CLI will make you fast.
+
+ArgoCD has its own CLI called `argocd`. It talks directly to the ArgoCD API server.
+
+First install it on your EC2:
+
+```bash
+curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+sudo install -m 555 argocd /usr/local/bin/argocd
+```
+
+Check:
+
+```bash
+argocd version
+```
+
+Now login to your ArgoCD:
+
+Since you exposed it via HTTPS:
+
+```bash
+argocd login 65.2.90.252.nip.io
+```
+
+It’ll ask:
+
+* Username: admin
+* Password: same as before (from secret)
+
+If cert complains, use:
+
+```bash
+argocd login 65.2.90.252.nip.io --insecure
+```
+
+Now you’re authenticated.
+
+This is your real control panel.
+
+---
+
+Core commands you *must* know:
+
+List apps:
+
+```bash
+argocd app list
+```
+
+Get app details:
+
+```bash
+argocd app get flask-dev
+```
+
+Sync app manually:
+
+```bash
+argocd app sync flask-dev
+```
+
+Check health:
+
+```bash
+argocd app wait flask-dev
+```
+
+Delete app:
+
+```bash
+argocd app delete flask-dev
+```
+
+---
+
+List projects:
+
+```bash
+argocd proj list
+```
+
+Get project:
+
+```bash
+argocd proj get default
+```
+
+---
+
+Repo management:
+
+List repos ArgoCD knows:
+
+```bash
+argocd repo list
+```
+
+Add private repo (SSH):
+
+```bash
+argocd repo add git@github.com:user/private-repo.git --ssh-private-key-path ~/.ssh/id_rsa
+```
+
+---
+
+User & RBAC:
+
+List accounts:
+
+```bash
+argocd account list
+```
+
+Get user info:
+
+```bash
+argocd account get
+```
+
+Update password:
+
+```bash
+argocd account update-password
+```
+
+---
+
+Real DevOps workflow:
+
+| Action              | Command                    |
+| ------------------- | -------------------------- |
+| Check cluster state | `argocd app list`          |
+| Deploy app          | `git commit + push`        |
+| Force deploy        | `argocd app sync app-name` |
+| Debug               | `argocd app get app-name`  |
+| Observe             | `argocd app logs app-name` |

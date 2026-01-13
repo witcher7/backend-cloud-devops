@@ -1,0 +1,262 @@
+
+## Goal
+
+Expose ArgoCD securely using HTTPS with Let’s Encrypt without owning a domain, using:
+
+* NGINX Ingress Controller
+* cert-manager
+* nip.io for temporary domain
+
+---
+
+## 1. Install NGINX Ingress Controller (on EKS)
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml
+```
+
+Verify:
+
+```bash
+kubectl get pods -n ingress-nginx
+kubectl get svc -n ingress-nginx
+```
+
+You should see:
+
+```text
+ingress-nginx-controller   LoadBalancer   ...   EXTERNAL-IP   ...
+```
+
+Example:
+
+```
+ingress-nginx-controller   LoadBalancer   10.x.x.x   a02bb4...elb.amazonaws.com   80,443
+```
+
+This service is your **public entry point**.
+
+---
+
+## 2. Install cert-manager
+
+```bash
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
+```
+
+Verify:
+
+```bash
+kubectl get pods -n cert-manager
+```
+
+You must see all running:
+
+* cert-manager
+* cert-manager-webhook
+* cert-manager-cainjector
+
+---
+
+## 3. Create Let’s Encrypt ClusterIssuer
+
+```bash
+nano letsencrypt-issuer.yaml
+```
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    email: your-email@example.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+```
+
+Apply:
+
+```bash
+kubectl apply -f letsencrypt-issuer.yaml
+```
+
+Check:
+
+```bash
+kubectl get clusterissuer
+```
+
+Must show:
+
+```
+letsencrypt-prod   True
+```
+
+---
+
+## 4. Get Public IP from LoadBalancer
+
+Since AWS ELB hostnames cannot be used with Let’s Encrypt, we resolve the IP.
+
+```bash
+nslookup <ELB-DNS-NAME>
+```
+
+Example:
+
+```bash
+nslookup a02bb4...elb.ap-south-1.amazonaws.com
+```
+
+Output:
+
+```
+Address: 65.2.90.252
+Address: 13.126.183.24
+Address: 3.108.170.71
+```
+
+Pick any one IP:
+
+```
+65.2.90.252
+```
+
+Now build nip.io domain:
+
+```
+65.2.90.252.nip.io
+```
+
+Test:
+
+```bash
+curl 65.2.90.252.nip.io
+```
+
+If you see nginx 404 → ingress is reachable.
+
+---
+
+## 5. Create ArgoCD Ingress with TLS
+
+```bash
+nano argocd-ingress.yaml
+```
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-server-ingress
+  namespace: argocd
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+spec:
+  tls:
+  - hosts:
+    - 65.2.90.252.nip.io
+    secretName: argocd-tls
+  rules:
+  - host: 65.2.90.252.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: argocd-server
+            port:
+              number: 443
+```
+
+Apply:
+
+```bash
+kubectl apply -f argocd-ingress.yaml
+```
+
+---
+
+## 6. Watch Certificate Creation
+
+```bash
+kubectl get certificate -n argocd
+kubectl describe certificate argocd-tls -n argocd
+```
+
+When you see:
+
+```
+Status:
+  Ready: True
+```
+
+And:
+
+```bash
+kubectl get secret argocd-tls -n argocd
+```
+
+TLS is active.
+
+---
+
+## 7. Access ArgoCD Securely
+
+Open in browser:
+
+```
+https://65.2.90.252.nip.io
+```
+
+You should get:
+
+* ArgoCD login screen
+* HTTPS
+* Green lock
+* Let’s Encrypt certificate
+
+---
+
+## Key Notes for Interviews / Docs
+
+* Let’s Encrypt **cannot issue certs for cloud-owned domains** like:
+
+  ```
+  *.elb.amazonaws.com
+  ```
+* Use `nip.io` or `sslip.io` with the public IP instead.
+* Flow:
+
+```
+Browser
+   ↓
+HTTPS
+   ↓
+NGINX Ingress (LoadBalancer)
+   ↓
+cert-manager
+   ↓
+Let’s Encrypt
+   ↓
+TLS Secret
+   ↓
+ArgoCD Service
+```
+
+---
+
+This is **real production TLS architecture**.
+Not demo. Not fake. Real internet-trusted security.
+
+You’ve officially turned ArgoCD into a **secure GitOps control plane**.
