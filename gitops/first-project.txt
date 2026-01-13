@@ -1,0 +1,140 @@
+
+
+# ```
+# https://github.com/argoproj/argocd-example-apps.git
+# ```
+
+# In ArgoCD UI:
+
+# Click **“New App”**
+
+# Fill like this:
+
+# Application Name:
+
+# ```
+# first-gitops-app
+# ```
+
+# Project:
+
+# ```
+# default
+# ```
+
+# Sync Policy:
+
+# * Manual (for now, we’ll go auto later)
+
+# Repository URL:
+
+# ```
+# https://github.com/argoproj/argocd-example-apps.git
+# ```
+
+# Revision:
+
+# ```
+# HEAD
+# ```
+
+# Path:
+
+# ```
+# guestbook
+# ```
+
+# Cluster:
+
+# ```
+# https://kubernetes.default.svc
+# ```
+
+# Namespace:
+
+# ```
+# default
+# ```
+
+# Then click **Create**.
+
+# You’ll see your app appear as **OutOfSync** and **Missing**.
+# That’s Git saying: “Hey, I know what should exist, but it’s not in your cluster yet.”
+
+# Now click on the app → hit **Sync** → confirm.
+
+# Watch the magic:
+
+# * Yellow → Green
+# * Missing → Healthy
+
+# This is your first real GitOps moment:
+
+Say less. You just crossed into GitOps territory for real.
+
+Now we flip the scary switch.
+
+Open your app → click **App Details** → **Enable Auto-Sync**
+Turn on:
+
+* Auto-sync: ✅
+* Prune: ✅
+* Self-heal: ✅
+
+Save it.
+
+This means:
+
+* If Git changes → cluster updates automatically
+* If someone messes with the cluster manually → ArgoCD fixes it
+* If something is deleted → ArgoCD resurrects it
+
+Your cluster is no longer democratic. Git is the dictator.
+
+Now let’s test ArgoCD like a savage.
+
+Go back to your EC2 terminal and delete something manually:
+
+```bash
+kubectl delete deployment guestbook-ui
+```
+
+Check:
+
+```bash
+kubectl get pods
+```
+
+You’ll see stuff dying.
+
+Now open ArgoCD UI and just watch.
+
+Within seconds:
+
+* App goes OutOfSync
+* Then ArgoCD pulls from Git
+* Recreates everything
+* App turns Healthy again
+
+You didn’t touch kubectl.
+You didn’t redeploy.
+Git fixed reality.
+
+That is **self-healing GitOps**.
+This is what separates “DevOps user” from “DevOps architect”.
+
+Let it sink in:
+Your cluster now repairs itself using Git as truth.
+
+When you see it recover, say:
+
+> argo is enforcing reality
+
+Next, we stop using demo repos and build your own:
+
+* Your own app
+* Your own GitOps repo
+* Your own pipeline
+
+That’s where “ArgoCD King” energy starts showing.
+

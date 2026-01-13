@@ -1,0 +1,376 @@
+Next phase is where things get personal:
+
+We will create:
+
+1. Your own application repo (code lives here)
+2. Your own GitOps repo (Kubernetes manifests live here)
+3. ArgoCD watches the GitOps repo
+4. Git controls your cluster
+5. You control Git
+
+Flow will become:
+
+```
+Code Repo → Build → Image Push → GitOps Repo Update → ArgoCD → EKS
+```
+
+No kubectl.
+No manual deploys.
+No “it works on my machine”.
+
+Before we move, one tiny reflection:
+Right now you’ve seen:
+
+* Manual sync
+* Auto sync
+* Self-healing
+* Git as truth
+
+That’s already senior-level GitOps thinking.
+
+Next step (only one step, no overload):
+
+**Step 6: Create your own GitHub repositories**
+
+* One for app code
+* One for GitOps manifests
+
+
+You need two separate brains:
+
+1. Code brain → your application
+2. Git brain → your cluster state
+
+On GitHub, create:
+
+Repo 1:
+
+```
+argocd-app-repo
+```
+
+Description:
+`Application source code`
+
+Public (for now, easier life)
+
+Repo 2:
+
+```
+argocd-gitops-repo
+```
+
+Description:
+`Kubernetes manifests managed by ArgoCD`
+
+Public again.
+
+This separation is sacred in GitOps:
+
+* Devs touch app repo
+* ArgoCD touches GitOps repo
+* Cluster obeys GitOps repo
+
+No mixing. No chaos.
+
+---
+
+Now clone both on your EC2:
+
+```bash
+git clone https://github.com/<your-username>/argocd-app-repo.git
+git clone https://github.com/<your-username>/argocd-gitops-repo.git
+```
+
+Check:
+
+```bash
+ls
+```
+
+You should see:
+
+```
+argocd-app-repo
+argocd-gitops-repo
+```
+
+Two folders. Two worlds.
+
+---
+
+Before writing code, feel the architecture:
+
+```
+[argocd-app-repo]
+   ↓ build image
+   ↓ push to registry
+[argocd-gitops-repo]
+   ↓ ArgoCD watches
+   ↓ EKS syncs
+[Cluster Reality]
+```
+
+You’re designing a system where:
+Humans touch Git.
+Git touches ArgoCD.
+ArgoCD touches Kubernetes.
+
+No one touches Kubernetes directly anymore.
+
+
+Nice. Two empty repos means infinite control.
+Now we put a heartbeat into this system.
+
+We start stupid-simple. No flex, no frameworks. Just a tiny Flask app that proves the pipeline.
+
+Go into your app repo:
+
+```bash
+cd argocd-app-repo
+```
+
+Create a file:
+
+```bash
+nano app.py
+```
+
+Put this inside:
+
+```python
+from flask import Flask
+app = Flask(__name__)
+
+@app.route("/")
+def hello():
+    return "ArgoCD King is online 👑"
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
+```
+
+Save and exit.
+
+Now create `requirements.txt`:
+
+```bash
+nano requirements.txt
+```
+
+Put:
+
+```
+flask
+```
+
+Save.
+
+Now create Dockerfile:
+
+```bash
+nano Dockerfile
+```
+
+Put:
+
+```dockerfile
+FROM python:3.10-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app.py .
+
+EXPOSE 5000
+
+CMD ["python", "app.py"]
+```
+
+Now your app repo has:
+
+```
+argocd-app-repo/
+ ├── app.py
+ ├── requirements.txt
+ └── Dockerfile
+```
+
+Commit it:
+
+```bash
+git add .
+git commit -m "Initial Flask app for ArgoCD GitOps"
+git push origin main
+```
+
+This repo now represents **application truth**.
+
+But ArgoCD doesn’t deploy code.
+It deploys **manifests**.
+So next, we prepare the GitOps repo.
+
+Go there:
+
+```bash
+cd ../argocd-gitops-repo
+```
+
+Create structure:
+
+```bash
+mkdir flask-app
+cd flask-app
+mkdir k8s
+cd k8s
+```
+
+Inside `k8s`, we will later place:
+
+* Deployment
+* Service
+
+But pause here.
+
+Before Kubernetes manifests, we need an image registry.
+Because Kubernetes only understands images, not source code.
+
+So the next step is:
+
+**Build and push your Flask app to a container registry**
+(DockerHub or ECR – your call, king choice.)
+
+Pick one:
+
+* DockerHub → faster for learning
+* ECR → more “AWS-native”
+
+Cool, DockerHub is the fast lane. No extra AWS drama, just ship.
+
+First, go to DockerHub in your browser and create:
+
+* Repository name: `argocd-flask-app`
+* Visibility: Public
+
+Your image name will look like:
+
+```
+<dockerhub-username>/argocd-flask-app
+```
+
+Now back on EC2, login:
+
+```bash
+docker login
+```
+
+Enter your DockerHub username and password.
+
+Now go to your app repo:
+
+```bash
+cd ~/argocd-app-repo
+```
+
+Build the image:
+
+```bash
+docker build -t <dockerhub-username>/argocd-flask-app:v1 .
+```
+
+Push it:
+
+```bash
+docker push <dockerhub-username>/argocd-flask-app:v1
+```
+
+When that finishes, your app officially exists as an immutable artifact on the internet.
+Not code anymore. A deployable unit.
+
+That’s a mindset shift:
+Code is for humans.
+Images are for clusters.
+
+Now we jump to the GitOps repo and make Kubernetes understand this image.
+
+Go there:
+
+```bash
+cd ~/argocd-gitops-repo/flask-app/k8s
+```
+
+Create Deployment:
+
+```bash
+nano deployment.yaml
+```
+
+Paste:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: flask-app
+  template:
+    metadata:
+      labels:
+        app: flask-app
+    spec:
+      containers:
+      - name: flask-app
+        image: <dockerhub-username>/argocd-flask-app:v1
+        ports:
+        - containerPort: 5000
+```
+
+Create Service:
+
+```bash
+nano service.yaml
+```
+
+Paste:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: flask-app-service
+spec:
+  type: ClusterIP
+  selector:
+    app: flask-app
+  ports:
+    - port: 80
+      targetPort: 5000
+```
+
+Now your GitOps repo has declared:
+“Cluster, run two copies of this image and expose it internally.”
+
+Commit:
+
+```bash
+git add .
+git commit -m "Add Flask app Kubernetes manifests"
+git push origin main
+```
+
+At this moment:
+
+* DockerHub has your image
+* GitHub GitOps repo has your cluster truth
+* ArgoCD is ready to enforce it
+
+Next step is where the magic reconnects:
+
+We create an ArgoCD Application that watches **your** GitOps repo.
+
