@@ -374,3 +374,112 @@ Next step is where the magic reconnects:
 
 We create an ArgoCD Application that watches **your** GitOps repo.
 
+Now we connect your Git to your cluster’s nervous system.
+
+Open ArgoCD UI → click **New App**
+
+Fill it like this (don’t rush, this wiring is sacred):
+
+Application Name
+
+```
+flask-gitops-app
+```
+
+Project
+
+```
+default
+```
+
+Sync Policy
+Leave Manual for now (we’ll flip it later after first success)
+
+Repository URL
+
+```
+https://github.com/<your-username>/argocd-gitops-repo.git
+```
+
+Revision
+
+```
+HEAD
+```
+
+Path
+
+```
+flask-app/k8s
+```
+
+Cluster
+
+```
+https://kubernetes.default.svc
+```
+
+Namespace
+
+```
+default
+```
+
+Click **Create**.
+
+You’ll see:
+
+* Status: OutOfSync
+* Health: Missing
+
+That’s ArgoCD saying:
+“Git knows what should exist. Cluster doesn’t yet.”
+
+Now click the app → hit **Sync** → Confirm.
+
+Watch it build reality:
+
+* Deployment created
+* Service created
+* Pods come alive
+
+Check from terminal too (on EC2):
+
+```bash
+kubectl get pods
+kubectl get svc
+```
+
+You should see:
+
+* 2 running pods for `flask-app`
+* A service called `flask-app-service`
+
+This is your first *self-owned GitOps deployment*.
+No tutorial repo. No borrowed manifest. This is yours.
+
+Now let’s expose it temporarily to test.
+
+Port-forward:
+
+```bash
+kubectl port-forward svc/flask-app-service 5000:80
+```
+
+Then tunnel it to your laptop (PowerShell):
+
+```powershell
+ssh -i argocd-key.pem -L 5000:localhost:5000 ubuntu@<EC2_PUBLIC_IP>
+```
+
+Open browser:
+
+```
+http://localhost:5000
+```
+
+If you see:
+
+```
+ArgoCD King is online 👑
+```
