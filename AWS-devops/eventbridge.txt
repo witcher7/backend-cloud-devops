@@ -1,0 +1,6 @@
+amazon eventbridge --> 
+1. Recieve events from various sources: AWS services , SAAS applications and custom applications 
+2. Apply rules to events  like filters, conditions, patterns 
+3. Send events to targets like lambda functions, SNS, SQS, 
+
+# EC2 ---->STOPPED --> EVENT_BRIDGE --> SNS --> EMAIL
