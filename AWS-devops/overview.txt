@@ -1,0 +1,39 @@
+# AWS EC2 --> provides scalable computing capacity in the cloud
+# AWS EC2 Auto Scaling --> Automatically adjusts the number of EC2 instances based on demand
+# AWS ELB --> Load Balancer --> Distributes incoming application traffic across multiple targets, such as EC2 instances
+# Amazon lightsail --> Designed for developers and small businesses offering pre-configured virtual private servers
+# AWS app runner --> A fully managed service that makes easy for developers to run containerized applications at scale 
+# AWS beanstalk --> A fully managed service that makes easy for developers to run containerized applications at scale
+# AWS fargate --> A serverless compute service that allows you to run containers without managing servers and EKS 
+# AWS Lambda -> lets you run code without managing servers
+# AWS wavelength -> Delivers ultra low latency to mobile and edge devices with 5G
+# AWS Backup --> A full managed backup service that makes it easy to centralize and automate the backup of data across aws services 
+# AWS EBS --> Provides block level storage volumes for EC2 instances 
+# AWS elastic discovery recovery --> minizes downtime and ensures business continuity by automatically recovering from failures
+# Amazon EFS --> Provides a simple, scalable, fully managed elastic nfs file system for use with AWS compute
+# Amazon FSx --> prodvides a fully managed file system for applications running in AWS 
+# Amazon S3 --> offers industry-leading scalability, data availability, security, and performance storage 
+# Amazon Storage Gateway --> A hybrid storage solution that makes it easy to store and retrieve data in the cloud for on-premises workloads 
+# Amazon Aurora -> A MySQL and PostgreSQL compatible relational database service 
+# Amazon RDS --> A managed database service that makes it easy to set up, operate, and scale a relational database in the cloud 
+# Amazon DynamoDB --> A fast and flexible NoSQL database service for all applications that need consistent, single-digit millisecond latency at any scale 
+# Amazon ElastiCache --> A fully managed in-memory data store for applications that need fast access to data which improves performance and scalability of web applications in memory caches
+# Amazon API gateway --> A fully managed service that makes it easy to create, publish, maintain, monitor, and secure APIs at any scale 
+# Amazon Cloudfront --> A global content delivery network (CDN) that provides fast delivery of web content to users
+# Amazon Route 53 --> A highly available and scalable Domain Name System (DNS) web service
+# Amazon VPC --> A virtual private cloud (VPC) is a private network in AWS that is isolated from the public internet
+# AWS WAF --> Web Application Firewall --> A web application firewall that helps protect your web applications from common web exploits and distributed denial-of-service (DDoS) attacks
+# AWS Shield --> A web application firewall that helps protect your web applications from common web exploits and distributed denial-of-service (DDoS) attacks
+# AWS Certificate Manager --> A web application firewall that helps protect your web applications from common web exploits and distributed denial-of-service (DDoS) attacks
+# AWS IAM --> Helps you to manage access to AWS resources and control who can access your AWS resources through policies, roles , users and groups
+# AWS Direct Connect --> Makes it easy to establish a dedicated network connection between your on-premises data center and AWS
+# AWS Transit Gateway --> A virtual router that connects multiple VPCs and on-premises networks
+# AWS VPC peering --> A feature that allows you to connect two VPCs in the same AWS region
+# AWS VPN --> Establishes a secure and private tunnel from your network or device to the aws global network
+# AWS SNS -< A managed service that provides message delivery at any scale 
+# AWS SQS --> A fully managed message queuing service that makes it easy to decouple and scale microservices, distributed systems, and serverless applications
+# AWS Athena --> An interactive query service that makes it easy to analyze data in Amazon S3 using standard SQL
+# Amazon Kinesis -->  A platform for real-time processing of streaming data at any scale offering powerful services to make it easy to load and analyze streaming data
+# Amazon ECR --> A fully managed container registry that makes it easy to store, manage, and deploy container images with Docker 
+# Amazon ECS --> A highly scalable, fast, container management service that makes it easy to run and manage containerized applications
+# Amazon EKS --> A full managed service that makes it easy to run and manage containerized applications at scale
