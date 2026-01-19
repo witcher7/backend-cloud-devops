@@ -1,0 +1,28 @@
+# Terraform block is there after terraform keyword
+# it has been there since version 0.13
+# it is used to configure terraform
+terraform {
+    required_version = ">= 1.0.0" # required version of terraform
+    required_version = "~> 0.14.3" # 
+    # CLI lock for version control
+    # if both matches then it will lock the version in .terraform.lock.hcl file
+    # if both do not match then it will throw an error
+    #  >= 1.0.0 means it will allow any version greater than or equal to 1.0.0
+    #  ~> 0.14.3 means it will allow any version greater than or equal to 0.14.3 and less than 0.15.0
+    #  = 1.0.0 means it will allow only 1.0.0
+    #  < 1.0.0 means it will allow any version less than 1.0.0
+    #  <= 1.0.0 means it will allow any version less than or equal to 1.0.0
+    
+    required_providers {
+        aws = {
+            source = "hashicorp/aws"
+            version = "~> 4.0"
+        }
+    } 
+}
+backend "local" {
+    path = "terraform.tfstate"
+    # local backend is used for local state file
+    # it is used for development and testing
+    # it is not recommended for production
+}

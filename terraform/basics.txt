@@ -22,4 +22,50 @@ and Terraform uses this State files to know what resources are created and what 
 
 
  Terraform WORKFLOW
- --> 
+ --> Terraform init 
+Used to Initialize a working directory containing terraform config files
+This is the first command that should be run after writing a new Terraform configuration
+Downloads Providers
+
+ --> Terraform validate
+Validates the terraform configurations files in that respective directory to ensure they are syntactically valid and 
+internally consistent. 
+
+ --> Terraform plan
+Creates an execution plan
+Terraform performs a refresh and determines what actions are necessary to achieve the desired state specified in configuration files
+
+ --> Terraform apply
+Used to apply the changes required to reach the desired state of the configuration.
+By default, apply scans the current directory for the configuration and applies the changes appropriately.
+
+ --> Terraform destroy
+Used to destroy the Terraform-managed infrastructure
+This will ask for confirmation before destroying.
+
+
+                         #Block labels  
+| Top Level Block |     /
+| Resource Block |     / block inside block: resource "aws_instance" "example" 
+resource "aws_instance" "example" {
+    ami = "ami-0c55b159cbfafe1f0"
+    instance_type = "t2.micro"
+}
+
+# single line comment
+/* multi line comment */
+// single line comment
+
+# Terraform language uses a limited number of top-level block types, which are blocks that can appear outside of any other block in a tf config file 
+
+--> Terraform top level blocks 
+Providers and resources 
+
+--> variable top level block
+input variables
+output variables 
+local values block 
+
+--> Data sources block 
+Modules Block 
+--> calling / referencing blocks 
