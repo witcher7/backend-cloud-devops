@@ -1,0 +1,25 @@
+IaC serves as a very clear reference of what resources we created, 
+and what their settings are. We don’t have to navigate to the web console to check the parameters.
+
+Terraform is a tool for building, changing, and versioning infrastructure 
+in a declarative way, meaning that we describe our desired state in a configuration file, 
+and Terraform will take care of the rest.
+
+If you accidentally change the wrong setting or delete the wrong resource in the web console you can break things.
+IaC helps solve this, especially when it is combined with version control, such as Git.
+
+With IaC we can write it once and then reuse it many times. 
+This means that one well written template can be used as the basis for multiple services, 
+in multiple regions around the world, making it much easier to horizontally scale.
+
+Once again IaC gives you a unified template for how to deploy our architecture. 
+If we create one well secured architecture we can reuse it multiple times, 
+and know that each deployed version is following the same settings.
+
+Terraform not only creates resources it also maintains the record of what is created in real world cloud environments using its State files. 
+This State files are stored in a local file or in a remote storage, 
+and Terraform uses this State files to know what resources are created and what their settings are. 
+
+
+ Terraform WORKFLOW
+ --> 
