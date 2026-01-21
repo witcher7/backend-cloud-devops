@@ -1,0 +1,15 @@
+=====> 4 nodes
+
+10 pods
+--->  ya 4 nodes 
+--> 2 nodes
+---> deployment ke mood ke hissab se
+
+
+pods --> saare all the nodes 
+
+daemonset 
+## Like the deployment, DaemonSet also ensures that a copy of a pod is running on all (or some) nodes in the cluster.
+## However, unlike Deployment which manages replicas of pods through ReplicaSets, DaemonSet ensures that a pod runs on every node (or a specified subset of nodes) in the cluster.
+## This is particularly useful for running background tasks or services that need to be present on all nodes, such as log collection agents, monitoring agents, or network proxies.
+apiVersion: apps/v1
