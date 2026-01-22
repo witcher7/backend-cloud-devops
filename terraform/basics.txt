@@ -69,3 +69,19 @@ local values block
 --> Data sources block 
 Modules Block 
 --> calling / referencing blocks 
+
+
+### _-> dependency lock 
+Terraform uses a dependency lock file to track the exact versions of providers and modules that were used to create a configuration. 
+This ensures that the same versions are used when the configuration is applied in the future, preventing unexpected changes or drift.
+
+> location: .terraform.lock.hcl
+> Lock file currently tracks only providers and modules, not terraform version
+> Lock file is automatically updated when you run terraform init or terraform apply if there are changes
+> if lock file exists terraform will use the versions specified in the lock file
+
+if lock file is missing terraform will download the latest versions of providers and modules
+
+aws --> lock file version(>=2.0)
+terraform init --> downloads the latest version of the provider
+but if lock file exists terraform will use the versions specified in the lock file (2.50.0)
