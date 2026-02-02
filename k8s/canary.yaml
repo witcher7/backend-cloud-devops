@@ -1,31 +1,67 @@
-Alright professor, last-minute **Istio + Canary revision**, clean enough to **copy-paste into notes** and **demo live without drama**.
-No rabbit holes, no why-is-this-hanging surprises. Just **what to type, what to explain, what students should see**.
+# Istio Canary Deployment – Step by Step (from zero to Kiali graphs)
 
-I’ll keep it **teachable**, not “Istio PhD thesis”.
-
----
-
-## 0️⃣ One-slide mental model (open with this)
-
-![Image](https://miro.medium.com/1%2ABnlMU7pzLTi-xx5NOL2b1A.png)
-
-![Image](https://istio.io/latest/docs/ops/deployment/architecture/arch.svg)
-
-**Explain to students:**
-
-* Kubernetes runs pods
-* Istio controls **traffic between pods**
-* Envoy sidecar intercepts traffic
-* Canary = **send % of traffic to new version**
-* No code change. Only config.
-
-Say this line slowly:
-
-> “Kubernetes decides *where* pods run. Istio decides *how traffic flows*.”
+This is the full cinematic experience. No magic jumps. We install everything, deploy a microservice, release a canary, and watch traffic split live in Kiali like a responsible adult.
 
 ---
 
-## 1️⃣ Install Istio (already done, but include in notes)
+## 0. What we are building (so your brain stays calm)
+
+* Kubernetes cluster (Minikube for sanity)
+* Istio installed (istiod, ingress gateway, telemetry)
+* Kiali dashboard
+* One microservice (`app`) with **v1** and **v2**
+* Canary release using **VirtualService + DestinationRule**
+* Live traffic visualization in Kiali
+
+Conceptually:
+
+```
+User → Istio Ingress → app-service → v1 (90%)
+                                  → v2 (10%)
+```
+
+---
+
+## 1. Prerequisites (do not skip or cry later)
+
+* Docker installed
+* kubectl installed
+* Minikube installed
+* 8 GB RAM minimum (Istio is not polite)
+
+Start cluster:
+
+```bash
+minikube start --memory=8192 --cpus=4
+```
+
+Check:
+
+```bash
+kubectl get nodes
+```
+
+---
+
+## 2. Install Istio (proper way, not cursed YAMLs)
+
+### 2.1 Download Istio
+
+```bash
+curl -L https://istio.io/downloadIstio | sh -
+cd istio-*
+export PATH=$PWD/bin:$PATH
+```
+
+### 2.2 Install Istio with demo profile
+
+Demo profile includes:
+
+* Ingress Gateway
+* Telemetry
+* Kiali
+* Prometheus
+* Grafana
 
 ```bash
 istioctl install --set profile=demo -y
@@ -37,119 +73,135 @@ Verify:
 kubectl get pods -n istio-system
 ```
 
-Explain:
-
-* `istiod` = brain
-* `istio-ingressgateway` = entry point
-* `envoy` = sidecar proxy
+Everything should be `Running`. If not, stare at logs until it is.
 
 ---
 
-## 2️⃣ Enable sidecar injection (very important)
+## 3. Enable automatic sidecar injection
+
+Create namespace for app:
 
 ```bash
-kubectl create namespace micro
-kubectl label namespace micro istio-injection=enabled
+kubectl create namespace canary-demo
+kubectl label namespace canary-demo istio-injection=enabled
 ```
 
-Explain:
-
-* Without this → **no Envoy**
-* No Envoy → **no Istio**
+This ensures Envoy sidecars are injected automatically.
 
 ---
 
-## 3️⃣ Deploy the application (httpbin)
+## 4. Create the microservice (v1 and v2)
 
-### Service (ONE service, never change this)
+We’ll use a simple HTTP app that returns version info.
 
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: httpbin
-  namespace: micro
-spec:
-  selector:
-    app: httpbin
-  ports:
-  - port: 80
-    targetPort: 80
-```
-
-Explain:
-
-* Kubernetes Service selects **all versions**
-* Istio decides which version gets traffic
-
----
-
-## 4️⃣ Deploy v1 and v2 (this is the canary base)
-
-### httpbin v1
+### 4.1 app-v1 Deployment
 
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: httpbin-v1
-  namespace: micro
+  name: app-v1
+  namespace: canary-demo
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
-      app: httpbin
+      app: app
       version: v1
   template:
     metadata:
       labels:
-        app: httpbin
+        app: app
         version: v1
     spec:
       containers:
-      - name: httpbin
-        image: kennethreitz/httpbin
+      - name: app
+        image: hashicorp/http-echo
+        args:
+        - "-text=Hello from v1"
         ports:
-        - containerPort: 80
-```
-
-### httpbin v2
-
-Same thing, just:
-
-```yaml
-version: v2
-name: httpbin-v2
+        - containerPort: 5678
 ```
 
 Apply:
 
 ```bash
-kubectl apply -f httpbin-v1.yaml
-kubectl apply -f httpbin-v2.yaml
+kubectl apply -f app-v1.yaml
 ```
-
-Verify:
-
-```bash
-kubectl get pods -n micro
-```
-
-Explain:
-
-* v1 and v2 are **same app**
-* Only difference is **label**
 
 ---
 
-## 5️⃣ Create Istio Gateway (north–south traffic)
+### 4.2 app-v2 Deployment (canary)
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-v2
+  namespace: canary-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: app
+        version: v2
+    spec:
+      containers:
+      - name: app
+        image: hashicorp/http-echo
+        args:
+        - "-text=Hello from v2 (canary)"
+        ports:
+        - containerPort: 5678
+```
+
+Apply:
+
+```bash
+kubectl apply -f app-v2.yaml
+```
+
+---
+
+## 5. Create the Kubernetes Service
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-service
+  namespace: canary-demo
+spec:
+  selector:
+    app: app
+  ports:
+  - port: 80
+    targetPort: 5678
+```
+
+Apply:
+
+```bash
+kubectl apply -f service.yaml
+```
+
+---
+
+## 6. Expose via Istio Ingress Gateway
+
+### 6.1 Gateway
 
 ```yaml
 apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
-  name: httpbin-gateway
-  namespace: micro
+  name: app-gateway
+  namespace: canary-demo
 spec:
   selector:
     istio: ingressgateway
@@ -162,26 +214,24 @@ spec:
     - "*"
 ```
 
-Explain:
+Apply:
 
-* Gateway ≠ Kubernetes Service
-* Gateway is **Istio’s entry door**
+```bash
+kubectl apply -f gateway.yaml
+```
 
 ---
 
-## 6️⃣ DestinationRule (define subsets = versions)
+### 6.2 DestinationRule (versions definition)
 
 ```yaml
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
-  name: httpbin
-  namespace: micro
+  name: app-destination
+  namespace: canary-demo
 spec:
-  host: httpbin
-  trafficPolicy:
-    tls:
-      mode: ISTIO_MUTUAL
+  host: app-service
   subsets:
   - name: v1
     labels:
@@ -191,114 +241,143 @@ spec:
       version: v2
 ```
 
-Explain clearly (students mess this up):
+Apply:
 
-* Subsets = logical versions
-* Labels must match pod labels **exactly**
-* If mismatch → traffic black hole
+```bash
+kubectl apply -f destinationrule.yaml
+```
 
 ---
 
-## 7️⃣ VirtualService (CANARY MAGIC)
+## 7. Canary traffic split (this is the money part)
 
-### 90% v1, 10% v2
+### VirtualService – 90% v1, 10% v2
 
 ```yaml
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
-  name: httpbin
-  namespace: micro
+  name: app-virtualservice
+  namespace: canary-demo
 spec:
   hosts:
   - "*"
   gateways:
-  - istio-system/httpbin-gateway
+  - app-gateway
   http:
   - route:
     - destination:
-        host: httpbin
+        host: app-service
         subset: v1
-        port:
-          number: 80
       weight: 90
     - destination:
-        host: httpbin
+        host: app-service
         subset: v2
-        port:
-          number: 80
       weight: 10
-```
-
-Explain:
-
-* This is **canary**
-* Change weights → traffic shifts
-* No pod restart
-* No redeploy
-
----
-
-## 8️⃣ Access app (for demo)
-
-Port-forward ingress **pod** (stable):
-
-```bash
-kubectl port-forward pod/istio-ingressgateway-XXXXX -n istio-system 8080:8080
-```
-
-Test:
-
-```bash
-curl http://localhost:8080/get
-```
-
-Explain:
-
-* `/` → 404 is normal
-* `/get` → valid endpoint
-
----
-
-## 9️⃣ Show Canary LIVE (best demo moment)
-
-Generate traffic:
-
-```bash
-for i in {1..50}; do curl -s http://localhost:8080/get > /dev/null; done
-```
-
-Now open **Kiali → Graph → micro**
-
-What students should see:
-
-* httpbin split into **v1 and v2**
-* Thicker line to v1
-* Thinner line to v2
-* 🔒 lock icon (mTLS)
-
-Say this:
-
-> “This is a production-grade canary without touching application code.”
-
----
-
-## 🔟 Change traffic LIVE (crowd-pleaser)
-
-Edit VirtualService:
-
-```yaml
-weight: 50
-weight: 50
 ```
 
 Apply:
 
 ```bash
-kubectl apply -f vs.yaml
+kubectl apply -f virtualservice.yaml
 ```
 
-Generate traffic again.
-Kiali graph updates **in real time**.
+Congrats. You just did a real canary deployment.
 
-Sleep. Your mesh is solid.
+---
+
+## 8. Access the app
+
+Get ingress IP:
+
+```bash
+kubectl get svc istio-ingressgateway -n istio-system
+```
+
+For Minikube:
+
+```bash
+minikube tunnel
+```
+
+Hit the endpoint repeatedly:
+
+```bash
+curl http://<EXTERNAL-IP>
+```
+
+You’ll see mostly `v1`, sometimes `v2`. That’s the canary behaving.
+
+---
+
+## 9. Install & open Kiali (visual dopamine)
+
+### 9.1 Expose Kiali
+
+```bash
+istioctl dashboard kiali
+```
+
+Browser opens automatically.
+
+### 9.2 What to click in Kiali
+
+* Namespace: `canary-demo`
+* Graph view
+* Select **Traffic Animation**
+* Set time range to `Last 1m`
+
+You will see:
+
+* app-service node
+* v1 thicker line (90%)
+* v2 thinner line (10%)
+
+This is real Envoy-level traffic, not fake metrics.
+
+---
+
+## 10. Canary promotion (the grown-up move)
+
+Change VirtualService to:
+
+* v2 → 100%
+* v1 → 0%
+
+Apply and watch Kiali update live.
+
+No redeploy. No downtime. No prayers.
+
+---
+
+## 11. Rollback (because production hates confidence)
+
+Change weights back instantly.
+
+This is why Istio exists.
+
+---
+
+## 12. What you actually learned (important)
+
+* Sidecar injection
+* Service vs subset vs version
+* Gateway vs VirtualService
+* Canary without CI/CD hacks
+* Visual observability with Kiali
+
+This is senior-level stuff, whether HR agrees or not.
+
+---
+
+## 13. Next upgrades (dangerous but fun)
+
+* Header-based canary (only QA users)
+* Fault injection (delay v2 by 2s)
+* Circuit breaking
+* mTLS enforcement
+* SLOs with Prometheus
+
+We can turn this into a **production-grade canary playbook** if you want.
+kubectl apply -f samples/addons/kiali.yaml
+kubectl apply -f samples/addons/prometheus.yaml
