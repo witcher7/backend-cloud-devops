@@ -22,3 +22,61 @@ spec:
                 values:
                 - Enter node label value
           preferredDuringSchedulingIgnoredDuringExecution:
+
+In Kubernetes, Node Affinity is defined inside a Pod's specification (). It provides advanced rules to attract Pods to specific worker nodes based on node labels. [1, 2, 3, 4]  
+Core Scheduling Types 
+Node Affinity syntax supports two main types of rules: 
+
+• : Hard requirement; the Pod will not deploy unless the node matches criteria. 
+• : Soft preference; the scheduler tries to find a match but deploys elsewhere if none exist. [1, 5, 6, 7, 8]  
+
+Complete Syntax Example 
+Key Elements of the Syntax 
+Multiple Terms and Logic • AND Logic: Within a single  block, all separate bulleted conditions must be true simultaneously (e.g., node must be in  AND have  label). 
+• OR Logic: If you include multiple bullet points under , the scheduler treats them as distinct possibilities (the node must match Term 1 OR Term 2). 
+
+Supported Operators The  field defines how the  relates to the : 
+
+• : The node label value must match one of the listed values. 
+• : The node label value must not match any listed values (used for Anti-Affinity). 
+• : Checks if the label key exists on the node. Do not define a  array when using this. 
+• : Checks if the label key is completely absent from the node. No  array allowed. 
+• : Greater than (interprets the node label value as an integer). 
+• : Less than (interprets the node label value as an integer). [2, 6, 9, 11, 12]  
+
+The Weight Field The  parameter only applies to . It accepts a value from 1 to 100. The scheduler scores available nodes by summing up the weights of all satisfied preferences; the highest-scoring node is prioritized. [6, 13]  
+If you would like, I can write a configuration targeting specific cloud provider labels or demonstrate how to combine this with Taints and Tolerations. How should we tailor the next step? [2]  
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: affinity-pod-example
+spec:
+  containers:
+  - name: web-app
+    image: nginx:latest
+  affinity:
+    nodeAffinity:
+      # 1. HARD CONSTRAINT (Required)
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: topology.kubernetes.io/region
+            operator: In
+            values:
+            - us-east-1
+            - us-west-2
+          - key: disktype
+            operator: Exists
+      
+      # 2. SOFT CONSTRAINT (Preferred)
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 80
+        preference:
+          matchExpressions:
+          - key: environment
+            operator: In
+            values:
+            - production
+
+
